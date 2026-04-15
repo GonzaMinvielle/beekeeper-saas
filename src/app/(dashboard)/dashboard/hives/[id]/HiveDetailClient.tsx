@@ -1,0 +1,261 @@
+'use client'
+
+import { useFormState, useFormStatus } from 'react-dom'
+import Link from 'next/link'
+import { updateHive, deleteHive } from '@/lib/actions/hives'
+import type { Apiary, Hive, Inspection } from '@/lib/types/database.types'
+
+const hiveTypes = [
+  { value: 'langstroth', label: 'Langstroth' },
+  { value: 'dadant',     label: 'Dadant' },
+  { value: 'warre',      label: 'Warré' },
+  { value: 'top_bar',   label: 'Top Bar' },
+  { value: 'flow_hive', label: 'Flow Hive' },
+  { value: 'layens',    label: 'Layens' },
+  { value: 'other',     label: 'Otro' },
+]
+
+const hiveStatuses = [
+  { value: 'active',   label: 'Activa' },
+  { value: 'inactive', label: 'Inactiva' },
+  { value: 'dead',     label: 'Muerta' },
+  { value: 'sold',     label: 'Vendida' },
+]
+
+const healthLabels: Record<number, { label: string; color: string }> = {
+  1: { label: 'Crítico',   color: 'bg-red-100 text-red-700' },
+  2: { label: 'Malo',      color: 'bg-orange-100 text-orange-700' },
+  3: { label: 'Regular',   color: 'bg-yellow-100 text-yellow-700' },
+  4: { label: 'Bueno',     color: 'bg-lime-100 text-lime-700' },
+  5: { label: 'Excelente', color: 'bg-green-100 text-green-700' },
+}
+
+function SaveButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300
+                 text-white font-semibold text-sm rounded-lg transition-colors"
+    >
+      {pending ? 'Guardando...' : 'Guardar cambios'}
+    </button>
+  )
+}
+
+export default function HiveDetailClient({
+  hive,
+  apiaries,
+  inspections,
+}: {
+  hive: Hive
+  apiaries: Apiary[]
+  inspections: (Inspection & { overall_health: number | null })[]
+}) {
+  const updateWithId = updateHive.bind(null, hive.id)
+  const [state, formAction] = useFormState(updateWithId, {})
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Link href="/dashboard/hives" className="text-sm text-amber-600 hover:text-amber-700">
+            ← Volver a colmenas
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">{hive.name}</h1>
+        </div>
+        <form action={deleteHive.bind(null, hive.id)}>
+          <button
+            type="submit"
+            onClick={(e) => {
+              if (!confirm('¿Eliminar esta colmena? Se eliminarán también sus inspecciones.')) {
+                e.preventDefault()
+              }
+            }}
+            className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50
+                       border border-red-200 rounded-lg transition-colors font-medium"
+          >
+            Eliminar
+          </button>
+        </form>
+      </div>
+
+      {/* Edit form */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h2 className="font-semibold text-gray-900 mb-5">Editar colmena</h2>
+
+        {state.error && (
+          <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {state.error}
+          </div>
+        )}
+
+        <form action={formAction} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Apiario <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="apiary_id"
+              required
+              defaultValue={hive.apiary_id}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                         focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+            >
+              {apiaries.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre <span className="text-red-500">*</span>
+              </label>
+              <input
+                name="name"
+                type="text"
+                required
+                defaultValue={hive.name}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código / etiqueta</label>
+              <input
+                name="code"
+                type="text"
+                defaultValue={hive.code ?? ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <select
+                name="type"
+                defaultValue={hive.type}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+              >
+                {hiveTypes.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select
+                name="status"
+                defaultValue={hive.status}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+              >
+                {hiveStatuses.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+              <input
+                name="color"
+                type="text"
+                defaultValue={hive.color ?? ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha instalación</label>
+              <input
+                name="installation_date"
+                type="date"
+                defaultValue={hive.installation_date ?? ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <textarea
+              name="notes"
+              rows={3}
+              defaultValue={hive.notes ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                         focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <SaveButton />
+            <Link href="/dashboard/hives" className="text-sm text-gray-500 hover:text-gray-700">
+              Cancelar
+            </Link>
+          </div>
+        </form>
+      </div>
+
+      {/* Inspections */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">
+            Últimas inspecciones
+            <span className="ml-2 text-sm font-normal text-gray-400">({inspections.length})</span>
+          </h2>
+          <Link
+            href="/dashboard/inspections/new"
+            className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+          >
+            + Nueva inspección
+          </Link>
+        </div>
+
+        {inspections.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm">
+            No hay inspecciones registradas para esta colmena.
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-50">
+            {inspections.map((insp) => {
+              const health = insp.overall_health ? healthLabels[insp.overall_health] : null
+              const date = new Date(insp.inspected_at).toLocaleDateString('es-AR', {
+                day: '2-digit', month: 'short', year: 'numeric',
+              })
+              return (
+                <li key={insp.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">{date}</span>
+                    {health && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${health.color}`}>
+                        {health.label}
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/dashboard/inspections/${insp.id}`}
+                    className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                  >
+                    Ver →
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
