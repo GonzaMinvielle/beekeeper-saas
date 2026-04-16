@@ -47,6 +47,7 @@ const navGroups = [
     links: [
       { href: '/pricing',           label: 'Planes',      icon: '⭐' },
       { href: '/dashboard/billing', label: 'Facturación', icon: '💳' },
+      { href: '/dashboard/ayuda',   label: 'Ayuda',       icon: '❓' },
     ],
   },
 ]
@@ -96,7 +97,10 @@ export default function Sidebar({ orgName, email, role, logoutAction }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-4 overflow-y-auto
+                     [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent
+                     [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full
+                     scrollbar-thin">
         {navGroups.map((group) => (
           <div key={group.label}>
             <p className="text-xs font-semibold text-[#86efcb]/60 uppercase tracking-widest px-3 mb-1.5">
