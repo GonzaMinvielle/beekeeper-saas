@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { updateApiary, deleteApiary } from '@/lib/actions/apiaries'
 import type { Apiary, Hive, HiveStatus } from '@/lib/types/database.types'
 import MapLoader from '@/components/map/MapLoader'
+import ApiaryWeatherForecast from '@/components/weather/ApiaryWeatherForecast'
 
 const statusConfig: Record<HiveStatus, { label: string; color: string }> = {
   active:   { label: 'Activa',   color: 'bg-green-100 text-green-700' },
@@ -167,6 +168,47 @@ export default function ApiaryDetailClient({
               />
             </div>
 
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                Datos del puestero
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del puestero</label>
+                  <input
+                    name="caretaker_name"
+                    type="text"
+                    defaultValue={apiary.caretaker_name ?? ''}
+                    placeholder="Ej: Juan Pérez"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                               focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono del puestero</label>
+                  <input
+                    name="caretaker_phone"
+                    type="text"
+                    defaultValue={apiary.caretaker_phone ?? ''}
+                    placeholder="Ej: +54 9 261 123-4567"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                               focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del campo</label>
+                  <input
+                    name="field_name"
+                    type="text"
+                    defaultValue={apiary.field_name ?? ''}
+                    placeholder="Ej: El Retiro"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                               focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3 pt-2">
               <SaveButton />
               <Link href="/dashboard/apiaries" className="text-sm text-gray-500 hover:text-gray-700">
@@ -200,6 +242,15 @@ export default function ApiaryDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Weather forecast */}
+      {typeof lat === 'number' && typeof lng === 'number' && (
+        <ApiaryWeatherForecast
+          latitude={lat}
+          longitude={lng}
+          apiaryName={apiary.name}
+        />
+      )}
 
       {/* Hives list — ancho completo abajo */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">

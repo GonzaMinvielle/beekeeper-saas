@@ -35,10 +35,13 @@ export async function createApiary(
   const { error } = await (supabase.from('apiaries') as any).insert({
     organization_id: orgId,
     name,
-    location: (formData.get('location') as string) || null,
-    latitude: formData.get('latitude') ? Number(formData.get('latitude')) : null,
-    longitude: formData.get('longitude') ? Number(formData.get('longitude')) : null,
-    notes: (formData.get('notes') as string) || null,
+    location:        (formData.get('location') as string) || null,
+    latitude:        formData.get('latitude') ? Number(formData.get('latitude')) : null,
+    longitude:       formData.get('longitude') ? Number(formData.get('longitude')) : null,
+    notes:           (formData.get('notes') as string) || null,
+    caretaker_name:  (formData.get('caretaker_name') as string) || null,
+    caretaker_phone: (formData.get('caretaker_phone') as string) || null,
+    field_name:      (formData.get('field_name') as string) || null,
   })
 
   if (error) return { error: error.message }
@@ -63,10 +66,13 @@ export async function updateApiary(
   const { error } = await (supabase.from('apiaries') as any)
     .update({
       name,
-      location: (formData.get('location') as string) || null,
-      latitude: formData.get('latitude') ? Number(formData.get('latitude')) : null,
-      longitude: formData.get('longitude') ? Number(formData.get('longitude')) : null,
-      notes: (formData.get('notes') as string) || null,
+      location:        (formData.get('location') as string) || null,
+      latitude:        formData.get('latitude') ? Number(formData.get('latitude')) : null,
+      longitude:       formData.get('longitude') ? Number(formData.get('longitude')) : null,
+      notes:           (formData.get('notes') as string) || null,
+      caretaker_name:  (formData.get('caretaker_name') as string) || null,
+      caretaker_phone: (formData.get('caretaker_phone') as string) || null,
+      field_name:      (formData.get('field_name') as string) || null,
     })
     .eq('id', id)
     .eq('organization_id', orgId)

@@ -1,14 +1,14 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Outfit } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 
 export const metadata: Metadata = {
   title: 'Appicultor Pro — Gestión de Colmenas',
   description: 'Plataforma SaaS multi-tenant para apicultores profesionales',
   manifest: '/manifest.json',
-  themeColor: '#d97706',
+  themeColor: '#1D9E75',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -28,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${outfit.variable} font-outfit antialiased`}>
         {children}
       </body>
     </html>

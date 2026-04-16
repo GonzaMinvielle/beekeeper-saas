@@ -12,8 +12,9 @@ const categoryLabel: Record<string, { label: string; color: string }> = {
   equipment: { label: 'Equipamiento', color: 'bg-blue-100 text-blue-700' },
 }
 
-type PostRow  = { id: string; title: string; content: string; category: string; created_at: string }
-type ReplyRow = { id: string; post_id: string; user_id: string; content: string; created_at: string }
+type PostRow   = { id: string; title: string; content: string; category: string; created_at: string; user_id: string }
+type ReplyRow  = { id: string; post_id: string; user_id: string; content: string; created_at: string }
+type MemberRow = { user_id: string; display_name: string | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = ReturnType<typeof createClient> & { from(table: string): any }
 
@@ -24,7 +25,7 @@ async function getData(postId: string) {
 
   const postRes = await supabase
     .from('forum_posts')
-    .select('id, title, content, category, created_at')
+    .select('id, title, content, category, created_at, user_id')
     .eq('id', postId)
     .single()
   const post = postRes.data as PostRow | null
@@ -37,7 +38,20 @@ async function getData(postId: string) {
     .order('created_at', { ascending: true })
   const replies = (repliesRes.data ?? []) as ReplyRow[]
 
-  return { post, replies, userId: user.id }
+  // Obtener display_name de todos los participantes
+  const allUserIds = Array.from(new Set([post.user_id, ...replies.map((r) => r.user_id)]))
+  const nameMap: Record<string, string> = {}
+  if (allUserIds.length > 0) {
+    const membersRes = await supabase
+      .from('org_members')
+      .select('user_id, display_name')
+      .in('user_id', allUserIds)
+    ;((membersRes.data ?? []) as MemberRow[]).forEach((m) => {
+      nameMap[m.user_id] = m.display_name ?? 'Usuario'
+    })
+  }
+
+  return { post, replies, userId: user.id, nameMap }
 }
 
 export default async function PostPage({
@@ -45,7 +59,7 @@ export default async function PostPage({
 }: {
   params: { postId: string }
 }) {
-  const { post, replies, userId } = await getData(params.postId)
+  const { post, replies, userId, nameMap } = await getData(params.postId)
   const cat = categoryLabel[post.category] ?? categoryLabel.general
 
   const postDate = new Date(post.created_at).toLocaleDateString('es-AR', {
@@ -54,24 +68,27 @@ export default async function PostPage({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <Link href="/dashboard/community" className="text-sm text-amber-600 hover:text-amber-700 font-medium">
+      <Link href="/dashboard/community" className="text-sm text-[#1D9E75] hover:text-[#0F6E56] font-medium">
         ← Volver al foro
       </Link>
 
       {/* Post */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cat.color}`}>
             {cat.label}
           </span>
           <span className="text-xs text-gray-400">{postDate}</span>
+          <span className="text-xs text-[#1D9E75] font-semibold">
+            · {nameMap[post.user_id] ?? 'Usuario'}
+          </span>
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-3">{post.title}</h1>
         <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{post.content}</p>
       </div>
 
       {/* Respuestas */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         <div className="p-5 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">
             {replies.length} respuesta{replies.length !== 1 ? 's' : ''}
@@ -92,7 +109,12 @@ export default async function PostPage({
                 <li key={reply.id} className="px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <p className="text-xs text-gray-400 mb-1">{replyDate}</p>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs font-semibold text-[#1D9E75]">
+                          {nameMap[reply.user_id] ?? 'Usuario'}
+                        </span>
+                        <span className="text-xs text-gray-400">{replyDate}</span>
+                      </div>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                         {reply.content}
                       </p>
@@ -113,7 +135,6 @@ export default async function PostPage({
           </ul>
         )}
 
-        {/* Formulario de respuesta */}
         <div className="p-5 border-t border-gray-100">
           <h3 className="font-medium text-gray-900 mb-3 text-sm">Agregar respuesta</h3>
           <ReplyForm postId={post.id} />

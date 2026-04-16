@@ -71,8 +71,17 @@ export default async function ApiariesPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold text-gray-900">{apiary.name}</h3>
+                  {apiary.field_name && (
+                    <p className="text-xs text-brand-green font-semibold mt-0.5">🌾 {apiary.field_name}</p>
+                  )}
                   {apiary.location && (
                     <p className="text-sm text-gray-500 mt-0.5">{apiary.location}</p>
+                  )}
+                  {apiary.caretaker_name && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      👤 {apiary.caretaker_name}
+                      {apiary.caretaker_phone && <span className="ml-2 text-gray-400">{apiary.caretaker_phone}</span>}
+                    </p>
                   )}
                   {apiary.notes && (
                     <p className="text-sm text-gray-400 mt-2 line-clamp-2">{apiary.notes}</p>

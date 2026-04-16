@@ -87,6 +87,9 @@ export interface Database {
           latitude: number | null
           longitude: number | null
           notes: string | null
+          caretaker_name: string | null
+          caretaker_phone: string | null
+          field_name: string | null
           created_at: string
           updated_at: string
         }
@@ -98,6 +101,9 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           notes?: string | null
+          caretaker_name?: string | null
+          caretaker_phone?: string | null
+          field_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -107,6 +113,9 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           notes?: string | null
+          caretaker_name?: string | null
+          caretaker_phone?: string | null
+          field_name?: string | null
           updated_at?: string
         }
       }

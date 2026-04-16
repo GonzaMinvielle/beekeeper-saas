@@ -3,21 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #F8FAF9;
+  --foreground: #0f172a;
+  --font-outfit: 'Outfit', sans-serif;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-outfit), Arial, sans-serif;
 }
 
 @layer utilities {
@@ -30,10 +24,9 @@ body {
   input,
   textarea,
   select {
-    color: #111827; /* gray-900 */
+    color: #111827;
   }
 
-  /* Fix autofill del browser que sobreescribe color de texto */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus {

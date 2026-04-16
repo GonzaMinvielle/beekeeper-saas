@@ -4,8 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-// Supabase v2.103 con PostgrestVersion "12" infiere `never` en tablas nuevas
-// hasta que se regeneren los tipos desde la CLI. Usamos `any` en esas tablas.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = ReturnType<typeof createClient> & { from(table: string): any }
 
@@ -52,8 +50,7 @@ export async function createPost(_prevState: { error?: string }, formData: FormD
 
 export async function deletePost(id: string) {
   const { supabase } = await getOrgAndUser()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('forum_posts').delete().eq('id', id)
+  await supabase.from('forum_posts').delete().eq('id', id)
   revalidatePath('/dashboard/community')
   redirect('/dashboard/community')
 }
@@ -74,14 +71,47 @@ export async function createReply(postId: string, _prevState: { error?: string }
   })
   if (error) return { error: (error as { message: string }).message }
 
+  // ── Notificar al autor del post si es distinto al que responde ──
+  try {
+    const postRes = await supabase
+      .from('forum_posts')
+      .select('user_id, organization_id, title')
+      .eq('id', postId)
+      .single()
+
+    const post = postRes.data as { user_id: string; organization_id: string; title: string } | null
+
+    if (post && post.user_id !== user.id) {
+      // Obtener display_name del que responde desde org_members
+      const nameRes = await supabase
+        .from('org_members')
+        .select('display_name')
+        .eq('user_id', user.id)
+        .single()
+      const displayName = (nameRes.data as { display_name: string | null } | null)?.display_name
+        ?? user.email?.split('@')[0]
+        ?? 'Alguien'
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('notifications').insert({
+        organization_id: post.organization_id,
+        user_id: post.user_id,
+        type: 'forum_reply',
+        message: `${displayName} comentó en tu post "${post.title}"`,
+        read: false,
+      })
+    }
+  } catch {
+    // No bloquear si la notificación falla
+  }
+
   revalidatePath(`/dashboard/community/${postId}`)
   return {}
 }
 
 export async function deleteReply(id: string, postId: string) {
   const { supabase } = await getOrgAndUser()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('forum_replies').delete().eq('id', id)
+  await supabase.from('forum_replies').delete().eq('id', id)
   revalidatePath(`/dashboard/community/${postId}`)
   redirect(`/dashboard/community/${postId}`)
 }

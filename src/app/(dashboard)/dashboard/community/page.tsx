@@ -12,7 +12,9 @@ type Post = {
   category: string
   likes: number
   created_at: string
-  reply_count?: number
+  user_id: string
+  author_name: string
+  reply_count: number
 }
 
 const categoryLabel: Record<string, { label: string; color: string }> = {
@@ -22,8 +24,9 @@ const categoryLabel: Record<string, { label: string; color: string }> = {
   equipment: { label: 'Equipamiento', color: 'bg-blue-100 text-blue-700' },
 }
 
-type PostRow = { id: string; title: string; content: string; category: string; likes: number; created_at: string }
-type ReplyRow = { post_id: string }
+type PostRow   = { id: string; title: string; content: string; category: string; likes: number; created_at: string; user_id: string }
+type ReplyRow  = { post_id: string }
+type MemberRow = { user_id: string; display_name: string | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = ReturnType<typeof createClient> & { from(table: string): any }
 
@@ -42,7 +45,7 @@ async function getData(category?: string) {
 
   let query = supabase
     .from('forum_posts')
-    .select('id, title, content, category, likes, created_at')
+    .select('id, title, content, category, likes, created_at, user_id')
     .eq('organization_id', member.organization_id)
     .order('created_at', { ascending: false })
 
@@ -64,8 +67,26 @@ async function getData(category?: string) {
     })
   }
 
+  // Obtener display_name de todos los autores de posts
+  const userIds = Array.from(new Set(posts.map((p) => p.user_id)))
+  const nameMap: Record<string, string> = {}
+  if (userIds.length > 0) {
+    const membersRes = await supabase
+      .from('org_members')
+      .select('user_id, display_name')
+      .in('user_id', userIds)
+    ;((membersRes.data ?? []) as MemberRow[]).forEach((m) => {
+      nameMap[m.user_id] = m.display_name ?? 'Usuario'
+    })
+  }
+
   return {
-    posts: posts.map((p) => ({ ...p, reply_count: replyCountMap[p.id] ?? 0 })) as Post[],
+    posts: posts.map((p) => ({
+      ...p,
+      reply_count: replyCountMap[p.id] ?? 0,
+      author_name: nameMap[p.user_id] ?? 'Usuario',
+    })) as Post[],
+    currentUserId: user.id,
   }
 }
 
@@ -74,7 +95,7 @@ export default async function CommunityPage({
 }: {
   searchParams: { category?: string }
 }) {
-  const { posts } = await getData(searchParams.category)
+  const { posts, currentUserId } = await getData(searchParams.category)
   const categories = ['', 'disease', 'harvest', 'equipment', 'general']
 
   return (
@@ -95,7 +116,7 @@ export default async function CommunityPage({
         </div>
       </div>
 
-      {/* Filtros por categoría */}
+      {/* Filtros */}
       <div className="flex gap-2 flex-wrap">
         {categories.map((cat) => {
           const info = cat ? categoryLabel[cat] : null
@@ -106,7 +127,7 @@ export default async function CommunityPage({
               href={cat ? `/dashboard/community?category=${cat}` : '/dashboard/community'}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors
                 ${isActive
-                  ? 'bg-amber-500 text-white'
+                  ? 'bg-[#1D9E75] text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
             >
@@ -118,7 +139,7 @@ export default async function CommunityPage({
 
       {/* Lista de posts */}
       {posts.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
           <p className="text-4xl mb-2">💬</p>
           <p className="text-sm">Todavía no hay publicaciones. ¡Sé el primero!</p>
         </div>
@@ -130,7 +151,7 @@ export default async function CommunityPage({
               day: '2-digit', month: 'short', year: 'numeric',
             })
             return (
-              <div key={post.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -138,10 +159,11 @@ export default async function CommunityPage({
                         {cat.label}
                       </span>
                       <span className="text-xs text-gray-400">{date}</span>
+                      <span className="text-xs text-[#1D9E75] font-medium">· {post.author_name}</span>
                     </div>
                     <Link
                       href={`/dashboard/community/${post.id}`}
-                      className="font-semibold text-gray-900 hover:text-amber-600 transition-colors line-clamp-1"
+                      className="font-semibold text-gray-900 hover:text-[#1D9E75] transition-colors line-clamp-1"
                     >
                       {post.title}
                     </Link>
@@ -150,13 +172,15 @@ export default async function CommunityPage({
                       <span>💬 {post.reply_count} respuesta{post.reply_count !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
-                  <ConfirmDeleteButton
-                    action={deletePost.bind(null, post.id)}
-                    message={`¿Eliminar "${post.title}"?`}
-                    className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded shrink-0"
-                  >
-                    Eliminar
-                  </ConfirmDeleteButton>
+                  {post.user_id === currentUserId && (
+                    <ConfirmDeleteButton
+                      action={deletePost.bind(null, post.id)}
+                      message={`¿Eliminar "${post.title}"?`}
+                      className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded shrink-0"
+                    >
+                      Eliminar
+                    </ConfirmDeleteButton>
+                  )}
                 </div>
               </div>
             )
