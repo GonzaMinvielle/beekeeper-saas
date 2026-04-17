@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/lib/auth/actions'
 import Sidebar from '@/components/layout/Sidebar'
 import OfflineBanner from '@/components/offline/OfflineBanner'
+import OfflineCacheProvider from '@/components/offline/OfflineCacheProvider'
 
 type MemberWithOrg = {
   role: string
@@ -51,7 +52,9 @@ export default async function DashboardLayout({
       */}
       <main className="md:ml-64 pt-14 md:pt-0 min-h-screen">
         <div className="p-4 md:p-8">
-          {children}
+          <OfflineCacheProvider>
+            {children}
+          </OfflineCacheProvider>
         </div>
       </main>
     </div>
