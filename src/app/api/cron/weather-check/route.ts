@@ -30,12 +30,13 @@ type OpenMeteoResponse = {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  // VAPID setup — inside handler so env vars are available at runtime, not build time
-  webpush.setVapidDetails(
-    'mailto:admin@appicultor.pro',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!,
-  )
+  // VAPID setup — only if keys are configured (skip push if not)
+  const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY
+  const pushEnabled = !!(vapidPublic && vapidPrivate)
+  if (pushEnabled) {
+    webpush.setVapidDetails('mailto:admin@appicultor.pro', vapidPublic!, vapidPrivate!)
+  }
   // Verificar que viene de Vercel Cron
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
@@ -137,22 +138,24 @@ export async function GET(req: NextRequest) {
           read: false,
         })
 
-        // Enviar Web Push si el usuario tiene suscripción
-        try {
-          const { data: authUser } = await supabase.auth.admin.getUserById(member.user_id)
-          const sub = authUser?.user?.user_metadata?.push_subscription
-          if (sub) {
-            await webpush.sendNotification(
-              JSON.parse(sub),
-              JSON.stringify({
-                title: '🌧️ Alerta de lluvia',
-                body: message,
-                icon: '/icons/icon-192x192.png',
-              })
-            )
+        // Enviar Web Push si el usuario tiene suscripción y VAPID está configurado
+        if (pushEnabled) {
+          try {
+            const { data: authUser } = await supabase.auth.admin.getUserById(member.user_id)
+            const sub = authUser?.user?.user_metadata?.push_subscription
+            if (sub) {
+              await webpush.sendNotification(
+                JSON.parse(sub),
+                JSON.stringify({
+                  title: '🌧️ Alerta de lluvia',
+                  body: message,
+                  icon: '/icons/icon-192x192.png',
+                })
+              )
+            }
+          } catch {
+            // Push falla si suscripción expiró — ignorar
           }
-        } catch {
-          // Push falla si suscripción expiró — ignorar
         }
       }
     }
