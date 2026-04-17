@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import webpush from 'web-push'
 
+export const dynamic = 'force-dynamic'
+
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
 type Apiary = {
@@ -25,17 +27,15 @@ type OpenMeteoResponse = {
   }
 }
 
-// ── VAPID setup ───────────────────────────────────────────────────────────────
-
-webpush.setVapidDetails(
-  'mailto:admin@appicultor.pro',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-)
-
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // VAPID setup — inside handler so env vars are available at runtime, not build time
+  webpush.setVapidDetails(
+    'mailto:admin@appicultor.pro',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  )
   // Verificar que viene de Vercel Cron
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
