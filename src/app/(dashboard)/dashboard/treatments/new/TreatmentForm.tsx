@@ -55,7 +55,7 @@ export default function TreatmentForm({ hives }: { hives: HiveWithApiary[] }) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Producto <span className="text-red-500">*</span>
@@ -72,7 +72,7 @@ export default function TreatmentForm({ hives }: { hives: HiveWithApiary[] }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de aplicación</label>
               <input name="applied_at" type="date" defaultValue={today}

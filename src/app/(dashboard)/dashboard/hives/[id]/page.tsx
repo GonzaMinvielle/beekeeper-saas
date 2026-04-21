@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Apiary, Hive, Inspection } from '@/lib/types/database.types'
+import type { Apiary, Hive, Inspection, Queen } from '@/lib/types/database.types'
 import HiveDetailClient from './HiveDetailClient'
 
 type InspectionWithHealth = Inspection & { overall_health: number | null }
@@ -27,7 +27,7 @@ async function getData(id: string) {
 
   if (!hive) notFound()
 
-  const [{ data: apiaries }, { data: inspections }] = await Promise.all([
+  const [{ data: apiaries }, { data: inspections }, { data: queen }] = await Promise.all([
     supabase
       .from('apiaries')
       .select('*')
@@ -39,12 +39,18 @@ async function getData(id: string) {
       .eq('hive_id', id)
       .order('inspected_at', { ascending: false })
       .limit(10),
+    supabase
+      .from('queens')
+      .select('*')
+      .eq('hive_id', id)
+      .maybeSingle(),
   ])
 
   return {
     hive,
     apiaries: (apiaries as Apiary[]) ?? [],
     inspections: (inspections as InspectionWithHealth[]) ?? [],
+    queen: (queen as Queen | null) ?? null,
   }
 }
 
@@ -53,6 +59,6 @@ export default async function HiveDetailPage({
 }: {
   params: { id: string }
 }) {
-  const { hive, apiaries, inspections } = await getData(params.id)
-  return <HiveDetailClient hive={hive} apiaries={apiaries} inspections={inspections} />
+  const { hive, apiaries, inspections, queen } = await getData(params.id)
+  return <HiveDetailClient hive={hive} apiaries={apiaries} inspections={inspections} queen={queen} />
 }

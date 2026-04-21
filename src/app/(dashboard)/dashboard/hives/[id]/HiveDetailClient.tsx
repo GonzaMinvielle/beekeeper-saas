@@ -3,7 +3,8 @@
 import { useFormState, useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import { updateHive, deleteHive } from '@/lib/actions/hives'
-import type { Apiary, Hive, Inspection } from '@/lib/types/database.types'
+import { saveQueen } from '@/lib/actions/queens'
+import type { Apiary, Hive, Inspection, Queen, MarkingColor } from '@/lib/types/database.types'
 
 const hiveTypes = [
   { value: 'langstroth', label: 'Langstroth' },
@@ -30,7 +31,7 @@ const healthLabels: Record<number, { label: string; color: string }> = {
   5: { label: 'Excelente', color: 'bg-green-100 text-green-700' },
 }
 
-function SaveButton() {
+function SaveButton({ label = 'Guardar cambios' }: { label?: string }) {
   const { pending } = useFormStatus()
   return (
     <button
@@ -39,22 +40,42 @@ function SaveButton() {
       className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300
                  text-white font-semibold text-sm rounded-lg transition-colors"
     >
-      {pending ? 'Guardando...' : 'Guardar cambios'}
+      {pending ? 'Guardando...' : label}
     </button>
   )
 }
+
+const markingColors: { value: MarkingColor; hex: string; label: string }[] = [
+  { value: 'white',  hex: '#ffffff', label: 'Blanco (1/6)' },
+  { value: 'yellow', hex: '#facc15', label: 'Amarillo (2/7)' },
+  { value: 'red',    hex: '#ef4444', label: 'Rojo (3/8)' },
+  { value: 'green',  hex: '#22c55e', label: 'Verde (4/9)' },
+  { value: 'blue',   hex: '#3b82f6', label: 'Azul (5/0)' },
+]
+
+const queenStatuses = [
+  { value: 'active',      label: 'Activa' },
+  { value: 'superseded',  label: 'Reemplazada' },
+  { value: 'dead',        label: 'Muerta' },
+  { value: 'removed',     label: 'Removida' },
+]
 
 export default function HiveDetailClient({
   hive,
   apiaries,
   inspections,
+  queen,
 }: {
   hive: Hive
   apiaries: Apiary[]
   inspections: (Inspection & { overall_health: number | null })[]
+  queen: Queen | null
 }) {
   const updateWithId = updateHive.bind(null, hive.id)
   const [state, formAction] = useFormState(updateWithId, {})
+
+  const saveQueenWithId = saveQueen.bind(null, hive.id)
+  const [queenState, queenFormAction] = useFormState(saveQueenWithId, {})
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -110,7 +131,7 @@ export default function HiveDetailClient({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nombre <span className="text-red-500">*</span>
@@ -136,7 +157,7 @@ export default function HiveDetailClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
               <select
@@ -165,7 +186,7 @@ export default function HiveDetailClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
               <input
@@ -205,6 +226,104 @@ export default function HiveDetailClient({
               Cancelar
             </Link>
           </div>
+        </form>
+      </div>
+
+      {/* Reina */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h2 className="font-semibold text-gray-900 mb-5">👑 Reina</h2>
+
+        {queenState.error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {queenState.error}
+          </div>
+        )}
+        {queenState.success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+            Datos de reina guardados.
+          </div>
+        )}
+
+        <form action={queenFormAction} className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select
+                name="queen_status"
+                defaultValue={queen?.status ?? 'active'}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+              >
+                {queenStatuses.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Año de nacimiento</label>
+              <input
+                name="year_born"
+                type="number"
+                min="2000"
+                max="2099"
+                defaultValue={queen?.year_born ?? ''}
+                placeholder={String(new Date().getFullYear())}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Color de marca</label>
+            <div className="flex flex-wrap gap-3">
+              {markingColors.map((c) => (
+                <label key={c.value} className="cursor-pointer flex flex-col items-center gap-1" title={c.label}>
+                  <input
+                    type="radio"
+                    name="marking_color"
+                    value={c.value}
+                    defaultChecked={queen?.marking_color === c.value}
+                    className="sr-only peer"
+                  />
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-gray-300 peer-checked:border-amber-500
+                               peer-checked:scale-110 transition-all shadow-sm"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  <span className="text-xs text-gray-400">{c.label.split(' ')[0]}</span>
+                </label>
+              ))}
+              <label className="cursor-pointer flex flex-col items-center gap-1" title="Sin color">
+                <input
+                  type="radio"
+                  name="marking_color"
+                  value=""
+                  defaultChecked={!queen?.marking_color}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 peer-checked:border-amber-500
+                               peer-checked:scale-110 transition-all flex items-center justify-center">
+                  <span className="text-gray-400 text-xs">—</span>
+                </div>
+                <span className="text-xs text-gray-400">Ninguno</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <textarea
+              name="queen_notes"
+              rows={2}
+              defaultValue={queen?.notes ?? ''}
+              placeholder="Temperamento, origen, observaciones..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                         focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none"
+            />
+          </div>
+
+          <SaveButton label="Guardar reina" />
         </form>
       </div>
 

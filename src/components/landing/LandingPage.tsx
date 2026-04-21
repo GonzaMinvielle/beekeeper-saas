@@ -16,6 +16,12 @@ const stagger: Variants = {
   show:   { transition: { staggerChildren: 0.1 } },
 }
 
+// ─── WhatsApp config ──────────────────────────────────────────────────────────
+// Reemplazá este número por el tuyo en formato internacional sin + ni espacios
+const WA_NUMBER = '5492284308943'
+const WA_MSG    = encodeURIComponent('Hola, quiero saber más sobre Appicultor Pro')
+const WA_HREF   = `https://wa.me/${WA_NUMBER}?text=${WA_MSG}`
+
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const features = [
@@ -87,8 +93,9 @@ const steps = [
 const plans = [
   {
     name: 'Gratuito',
-    price: '$0',
-    period: '/mes',
+    price: 'Gratis',
+    period: 'para siempre',
+    arsNote: null,
     desc: 'Para apicultores que están empezando.',
     features: ['5 colmenas', '1 apiario', '1 usuario', 'Inspecciones básicas', 'Biblioteca de enfermedades'],
     cta: 'Empezar gratis',
@@ -97,8 +104,9 @@ const plans = [
   },
   {
     name: 'Básico',
-    price: '$20',
+    price: 'USD 20',
     period: '/mes',
+    arsNote: '≈ $22.000 ARS al tipo de cambio actual',
     desc: 'Para apiarios en crecimiento.',
     features: ['20 colmenas', '3 apiarios', '3 usuarios', 'Cosechas y tratamientos', 'Alertas de lluvia', 'Soporte por email'],
     cta: 'Elegir Básico',
@@ -107,8 +115,9 @@ const plans = [
   },
   {
     name: 'Profesional',
-    price: '$30',
+    price: 'USD 30',
     period: '/mes',
+    arsNote: '≈ $33.000 ARS al tipo de cambio actual',
     desc: 'Para operaciones apícolas serias.',
     features: ['Colmenas ilimitadas', 'Apiarios ilimitados', 'Usuarios ilimitados', 'Finanzas avanzadas', 'Informes exportables', 'Soporte prioritario'],
     cta: 'Elegir Pro',
@@ -192,6 +201,85 @@ function Header() {
   )
 }
 
+function AppMockup() {
+  return (
+    <div className="w-full max-w-3xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-gray-200 text-left">
+      {/* Title bar */}
+      <div className="bg-[#1a1a2e] flex items-center justify-between px-3 sm:px-4 h-9 gap-2">
+        {/* Left: app icon + title */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-sm">🐝</span>
+          <span className="text-white text-xs font-semibold">Appicultor Pro</span>
+        </div>
+        {/* Center: address bar — hidden on mobile */}
+        <div className="hidden sm:block flex-1 max-w-xs">
+          <div className="bg-gray-700/60 text-gray-300 text-xs px-3 py-1 rounded text-center truncate font-mono">
+            app.appicultor-pro.com/dashboard
+          </div>
+        </div>
+        {/* Right: window controls */}
+        <div className="flex items-center gap-2.5 text-gray-400 text-xs shrink-0 font-medium">
+          <span className="cursor-default">—</span>
+          <span className="cursor-default">□</span>
+          <span className="hover:text-red-400 cursor-default">✕</span>
+        </div>
+      </div>
+
+      {/* Dashboard content */}
+      <div className="bg-gray-50 p-2.5 sm:p-4 space-y-2.5 sm:space-y-4">
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          {[
+            { label: 'Colmenas activas',    value: '32',    icon: '🏡', color: 'text-brand-green' },
+            { label: 'Kg cosechados',        value: '847 kg', icon: '🍯', color: 'text-amber-500' },
+            { label: 'Alertas pendientes',   value: '3',     icon: '🔔', color: 'text-red-500' },
+            { label: 'Colmenas saludables',  value: '94%',   icon: '💚', color: 'text-green-500' },
+          ].map((card) => (
+            <div key={card.label} className="bg-white rounded-lg border border-gray-100 p-2 sm:p-3 shadow-sm">
+              <div className="flex items-start justify-between mb-1 gap-1">
+                <span className="text-[10px] sm:text-xs text-gray-500 leading-tight">{card.label}</span>
+                <span className="text-sm shrink-0">{card.icon}</span>
+              </div>
+              <p className={`text-base sm:text-xl font-extrabold ${card.color}`}>{card.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100">
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-600 uppercase tracking-wide">Últimas colmenas</span>
+          </div>
+          <table className="w-full text-[11px] sm:text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-3 sm:px-4 py-1.5 sm:py-2 font-semibold text-gray-500">Colmena</th>
+                <th className="text-left px-3 sm:px-4 py-1.5 sm:py-2 font-semibold text-gray-500 hidden sm:table-cell">Apiario</th>
+                <th className="text-left px-3 sm:px-4 py-1.5 sm:py-2 font-semibold text-gray-500">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[
+                { name: 'Colmena A1', apiary: 'Apiario Norte', badge: 'Saludable', cls: 'bg-green-100 text-green-700' },
+                { name: 'Colmena B3', apiary: 'Apiario Sur',   badge: 'Atención',  cls: 'bg-yellow-100 text-yellow-700' },
+                { name: 'Colmena C2', apiary: 'Apiario Norte', badge: 'Crítica',   cls: 'bg-red-100 text-red-700' },
+              ].map((row) => (
+                <tr key={row.name} className="hover:bg-gray-50">
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-800">{row.name}</td>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-500 hidden sm:table-cell">{row.apiary}</td>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5">
+                    <span className={`${row.cls} px-1.5 sm:px-2 py-0.5 rounded-full font-semibold`}>{row.badge}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -266,7 +354,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.5 }}
-            className="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto"
+            className="mt-12 grid grid-cols-3 gap-6 max-w-lg mx-auto"
           >
             {[
               { value: '100%', label: 'Gratuito para empezar' },
@@ -278,6 +366,16 @@ export default function LandingPage() {
                 <p className="text-xs text-gray-500 mt-1 font-medium">{stat.label}</p>
               </div>
             ))}
+          </motion.div>
+
+          {/* App mockup */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+            className="mt-14"
+          >
+            <AppMockup />
           </motion.div>
         </div>
       </section>
@@ -421,7 +519,7 @@ export default function LandingPage() {
                   <p className={`font-bold text-sm mb-1 ${plan.highlight ? 'text-green-200' : 'text-gray-500'}`}>
                     {plan.name}
                   </p>
-                  <div className="flex items-end gap-1 mb-2">
+                  <div className="flex items-end gap-1 mb-1">
                     <span className={`text-4xl font-extrabold ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>
                       {plan.price}
                     </span>
@@ -429,6 +527,11 @@ export default function LandingPage() {
                       {plan.period}
                     </span>
                   </div>
+                  {plan.arsNote && (
+                    <p className={`text-xs mb-2 ${plan.highlight ? 'text-green-200' : 'text-gray-400'}`}>
+                      {plan.arsNote}
+                    </p>
+                  )}
                   <p className={`text-sm ${plan.highlight ? 'text-green-100' : 'text-gray-500'}`}>
                     {plan.desc}
                   </p>
@@ -453,6 +556,17 @@ export default function LandingPage() {
                 >
                   {plan.cta}
                 </Link>
+
+                {/* WhatsApp link under CTA */}
+                <a
+                  href={WA_HREF}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`text-center text-xs mt-3 underline underline-offset-2
+                    ${plan.highlight ? 'text-green-200 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  ¿Tenés dudas? Escribinos
+                </a>
               </motion.div>
             ))}
           </motion.div>
@@ -473,7 +587,7 @@ export default function LandingPage() {
               ¿Listo para gestionar tu apiario como un profesional?
             </motion.h2>
             <motion.p variants={fadeUp} className="text-green-100 text-lg mb-8">
-              Sumate a cientos de apicultores que ya optimizan su producción con Appicultor Pro.
+              Desarrollado junto a apicultores profesionales argentinos para resolver problemas reales del campo.
             </motion.p>
             <motion.div variants={fadeUp}>
               <Link
@@ -522,6 +636,21 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* ── WHATSAPP FLOATING BUTTON ──────────────────────────────────────────── */}
+      <a
+        href={WA_HREF}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Contactar por WhatsApp"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] hover:bg-[#20c05c]
+                   rounded-full shadow-lg shadow-black/30 flex items-center justify-center
+                   transition-transform hover:scale-110"
+      >
+        <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      </a>
     </div>
   )
 }

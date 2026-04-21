@@ -67,7 +67,7 @@ export default function HarvestDetailClient({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
               <input name="harvested_at" type="date" defaultValue={harvest.harvested_at}
@@ -83,7 +83,7 @@ export default function HarvestDetailClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de miel</label>
               <select name="honey_type" defaultValue={harvest.honey_type}

@@ -46,7 +46,7 @@ export default function MedicationForm() {
                          focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
               <input name="quantity" type="number" step="0.01" min="0" defaultValue="0" placeholder="0"

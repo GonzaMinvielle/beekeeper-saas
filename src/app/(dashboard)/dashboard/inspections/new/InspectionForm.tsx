@@ -122,7 +122,7 @@ export default function InspectionForm({ hives }: { hives: CachedHive[] }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Clima</label>
               <select
@@ -167,9 +167,9 @@ export default function InspectionForm({ hives }: { hives: CachedHive[] }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Salud general
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-5 gap-1">
               {healthOptions.map((h) => (
-                <label key={h.value} className="flex-1 cursor-pointer">
+                <label key={h.value} className="cursor-pointer">
                   <input
                     type="radio"
                     name="overall_health"
