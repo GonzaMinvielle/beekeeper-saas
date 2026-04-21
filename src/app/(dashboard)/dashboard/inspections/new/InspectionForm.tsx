@@ -33,21 +33,26 @@ export default function InspectionForm({ hives }: { hives: CachedHive[] }) {
     const hiveId = formData.get('hive_id') as string
     if (!hiveId) { setError('Seleccioná una colmena.'); setPending(false); return }
 
+    const saveOffline = async () => {
+      const hive = hives.find(h => h.id === hiveId)
+      await savePendingInspection({
+        id: crypto.randomUUID(),
+        hive_id: hiveId,
+        hive_name: hive?.name ?? '',
+        inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),
+        overall_health: formData.get('overall_health') ? Number(formData.get('overall_health')) : null,
+        notes: (formData.get('notes') as string) || null,
+        weather: (formData.get('weather') as string) || null,
+        temperature_c: formData.get('temperature_c') ? Number(formData.get('temperature_c')) : null,
+        duration_min: formData.get('duration_min') ? Number(formData.get('duration_min')) : null,
+      })
+      router.push('/dashboard/inspections')
+    }
+
+    // Si ya sabemos que estamos offline, guardar directo sin intentar red
     if (!navigator.onLine) {
       try {
-        const hive = hives.find(h => h.id === hiveId)
-        await savePendingInspection({
-          id: crypto.randomUUID(),
-          hive_id: hiveId,
-          hive_name: hive?.name ?? '',
-          inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),
-          overall_health: formData.get('overall_health') ? Number(formData.get('overall_health')) : null,
-          notes: (formData.get('notes') as string) || null,
-          weather: (formData.get('weather') as string) || null,
-          temperature_c: formData.get('temperature_c') ? Number(formData.get('temperature_c')) : null,
-          duration_min: formData.get('duration_min') ? Number(formData.get('duration_min')) : null,
-        })
-        router.push('/dashboard/inspections')
+        await saveOffline()
       } catch {
         setError('No se pudo guardar localmente.')
         setPending(false)
@@ -55,16 +60,28 @@ export default function InspectionForm({ hives }: { hives: CachedHive[] }) {
       return
     }
 
-    // Online: llamar server action
+    // Intentar online; si falla por red → guardar offline automáticamente
     try {
       const result = await createInspection({}, formData)
       if (result?.error) {
         setError(result.error)
         setPending(false)
       }
-      // createInspection redirige en éxito — no necesita más manejo
-    } catch {
-      setPending(false)
+      // createInspection redirige en éxito
+    } catch (err) {
+      const isNetworkError = err instanceof TypeError ||
+        (err instanceof Error && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed')))
+      if (isNetworkError) {
+        try {
+          await saveOffline()
+        } catch {
+          setError('Sin conexión y no se pudo guardar localmente.')
+          setPending(false)
+        }
+      } else {
+        setError('Error al guardar. Intentá de nuevo.')
+        setPending(false)
+      }
     }
   }
 
