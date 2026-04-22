@@ -217,7 +217,7 @@ export default function InspectionDetailClient({
             <select
               name="hive_id"
               required
-              defaultValue={inspection.hive_id}
+              defaultValue={inspection.hive_id ?? ''}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
                          focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
             >

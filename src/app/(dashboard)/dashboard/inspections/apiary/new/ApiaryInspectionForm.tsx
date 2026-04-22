@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createApiaryInspection } from '@/lib/actions/inspections'
-import type { Hive } from '@/lib/types/database.types'
+type PartialHive = { id: string; name: string; code: string | null }
 
 const weatherOptions = [
   { value: 'soleado',  label: 'Soleado' },
@@ -38,9 +37,8 @@ export default function ApiaryInspectionForm({
 }: {
   apiaryId: string
   apiaryName: string
-  hives: Hive[]
+  hives: PartialHive[]
 }) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +46,7 @@ export default function ApiaryInspectionForm({
 
   const [hiveState, setHiveState] = useState<Record<string, HiveAttention>>(() =>
     Object.fromEntries(
-      hives.map((h) => [h.id, { checked: false, observation: '', priority: 'low' }])
+      hives.map((h: PartialHive) => [h.id, { checked: false, observation: '', priority: 'low' }])
     )
   )
 

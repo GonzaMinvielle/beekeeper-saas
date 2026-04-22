@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import type { FoodType } from '@/lib/types/database.types'
 import { foodTypes } from '@/lib/types/database.types'
 
 type RecentInspection = {

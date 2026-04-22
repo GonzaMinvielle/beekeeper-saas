@@ -18,7 +18,7 @@ export default async function NewApiaryInspectionPage({
     .from('org_members')
     .select('organization_id')
     .eq('user_id', user.id)
-    .single()
+    .single() as { data: { organization_id: string } | null }
 
   if (!member) redirect('/login')
 
@@ -28,14 +28,14 @@ export default async function NewApiaryInspectionPage({
       .select('id, name')
       .eq('id', apiaryId)
       .eq('organization_id', member.organization_id)
-      .single(),
+      .single() as unknown as Promise<{ data: { id: string; name: string } | null }>,
     supabase
       .from('hives')
       .select('id, name, code, status')
       .eq('apiary_id', apiaryId)
       .eq('organization_id', member.organization_id)
       .eq('status', 'active')
-      .order('name'),
+      .order('name') as unknown as Promise<{ data: { id: string; name: string; code: string | null; status: string }[] | null }>,
   ])
 
   if (!apiary) redirect('/dashboard/apiaries')
