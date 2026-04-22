@@ -27,6 +27,11 @@ export type SubPlan = 'free' | 'basic' | 'pro'
 export type SubStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete'
 export type ForumCategory = 'disease' | 'harvest' | 'equipment' | 'general'
 export type DiseaseSeverity = 'low' | 'medium' | 'high'
+export type InspectionLevel = 'hive' | 'apiary'
+export type WeatherCondition = 'soleado' | 'nublado' | 'lluvioso' | 'viento'
+export type FloweringStatus = 'activa' | 'escasa' | 'nula'
+export type InspectionDetailPriority = 'low' | 'medium' | 'high'
+export type FoodType = 'azucar' | 'jarabe' | 'candy' | 'proteico' | 'polen' | 'otro'
 
 export interface Database {
   public: {
@@ -200,7 +205,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          hive_id: string
+          hive_id: string | null
           inspector_id: string
           inspected_at: string
           weather: string | null
@@ -208,13 +213,18 @@ export interface Database {
           duration_min: number | null
           overall_health: number | null
           notes: string | null
+          inspection_level: InspectionLevel
+          apiary_id: string | null
+          general_notes: string | null
+          weather_conditions: WeatherCondition | null
+          flowering_status: FloweringStatus | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           organization_id: string
-          hive_id: string
+          hive_id?: string | null
           inspector_id: string
           inspected_at?: string
           weather?: string | null
@@ -222,17 +232,87 @@ export interface Database {
           duration_min?: number | null
           overall_health?: number | null
           notes?: string | null
+          inspection_level?: InspectionLevel
+          apiary_id?: string | null
+          general_notes?: string | null
+          weather_conditions?: WeatherCondition | null
+          flowering_status?: FloweringStatus | null
           created_at?: string
           updated_at?: string
         }
         Update: {
+          hive_id?: string | null
           inspected_at?: string
           weather?: string | null
           temperature_c?: number | null
           duration_min?: number | null
           overall_health?: number | null
           notes?: string | null
+          inspection_level?: InspectionLevel
+          apiary_id?: string | null
+          general_notes?: string | null
+          weather_conditions?: WeatherCondition | null
+          flowering_status?: FloweringStatus | null
           updated_at?: string
+        }
+      }
+      apiary_inspection_details: {
+        Row: {
+          id: string
+          inspection_id: string
+          hive_id: string
+          observation: string | null
+          requires_attention: boolean
+          priority: InspectionDetailPriority
+          org_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          hive_id: string
+          observation?: string | null
+          requires_attention?: boolean
+          priority?: InspectionDetailPriority
+          org_id: string
+          created_at?: string
+        }
+        Update: {
+          observation?: string | null
+          requires_attention?: boolean
+          priority?: InspectionDetailPriority
+        }
+      }
+      feedings: {
+        Row: {
+          id: string
+          org_id: string
+          hive_id: string | null
+          apiary_id: string | null
+          food_type: FoodType
+          quantity_kg: number
+          date: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          hive_id?: string | null
+          apiary_id?: string | null
+          food_type: FoodType
+          quantity_kg: number
+          date: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          hive_id?: string | null
+          apiary_id?: string | null
+          food_type?: FoodType
+          quantity_kg?: number
+          date?: string
+          notes?: string | null
         }
       }
       observations: {
@@ -750,6 +830,19 @@ export type Subscription = Database['public']['Tables']['subscriptions']['Row']
 export type ForumPost = Database['public']['Tables']['forum_posts']['Row']
 export type ForumReply = Database['public']['Tables']['forum_replies']['Row']
 export type DiseaseEntry = Database['public']['Tables']['disease_library']['Row']
+
+// Tipos de conveniencia — Etapa 5 (inspecciones de apiario + alimentación)
+export type ApiaryInspectionDetail = Database['public']['Tables']['apiary_inspection_details']['Row']
+export type Feeding = Database['public']['Tables']['feedings']['Row']
+
+export const foodTypes: { value: FoodType; label: string }[] = [
+  { value: 'azucar',    label: 'Azúcar' },
+  { value: 'jarabe',    label: 'Jarabe' },
+  { value: 'candy',     label: 'Candy' },
+  { value: 'proteico',  label: 'Proteico' },
+  { value: 'polen',     label: 'Polen' },
+  { value: 'otro',      label: 'Otro' },
+]
 
 export const honeyTypes = [
   { value: 'multifloral',  label: 'Multifloral' },

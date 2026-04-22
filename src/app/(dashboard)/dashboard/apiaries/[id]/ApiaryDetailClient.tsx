@@ -4,7 +4,8 @@ import { useFormState, useFormStatus } from 'react-dom'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { updateApiary, deleteApiary } from '@/lib/actions/apiaries'
-import type { Apiary, Hive, HiveStatus } from '@/lib/types/database.types'
+import type { Apiary, Hive, HiveStatus, Feeding, FoodType } from '@/lib/types/database.types'
+import { foodTypes } from '@/lib/types/database.types'
 import MapLoader from '@/components/map/MapLoader'
 import ApiaryWeatherForecast from '@/components/weather/ApiaryWeatherForecast'
 
@@ -32,9 +33,11 @@ function SaveButton() {
 export default function ApiaryDetailClient({
   apiary,
   hives,
+  feedings,
 }: {
   apiary: Apiary
   hives: Hive[]
+  feedings: (Feeding & { hives: { name: string } | null })[]
 }) {
   const updateWithId = updateApiary.bind(null, apiary.id)
   const [state, formAction] = useFormState(updateWithId, {})
@@ -268,16 +271,114 @@ export default function ApiaryDetailClient({
         />
       )}
 
+      {/* Feeding summary */}
+      {(() => {
+        const now = new Date()
+        const seasonStart = now.getMonth() >= 7
+          ? new Date(now.getFullYear(), 7, 1)
+          : new Date(now.getFullYear() - 1, 7, 1)
+
+        const seasonFeedings = feedings.filter((f) => new Date(f.date) >= seasonStart)
+        const seasonTotal = seasonFeedings.reduce((s, f) => s + Number(f.quantity_kg), 0)
+
+        const byType = seasonFeedings.reduce<Record<string, number>>((acc, f) => {
+          acc[f.food_type] = (acc[f.food_type] ?? 0) + Number(f.quantity_kg)
+          return acc
+        }, {})
+
+        const recent = feedings.slice(0, 5)
+
+        const formatDate = (d: string) => {
+          const [y, m, day] = d.split('-')
+          return `${day}/${m}/${y}`
+        }
+
+        const foodLabel = (type: FoodType) =>
+          foodTypes.find((f) => f.value === type)?.label ?? type
+
+        return (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div className="p-5 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Alimentación del apiario</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Temporada actual (desde agosto)</p>
+            </div>
+
+            {feedings.length === 0 ? (
+              <div className="p-6 text-center text-gray-400 text-sm">
+                Sin registros de alimentación en este apiario.
+              </div>
+            ) : (
+              <div className="p-5 space-y-4">
+                {/* Total + breakdown */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="bg-amber-50 rounded-lg px-4 py-2.5">
+                    <p className="text-xs text-amber-600 font-medium">Total temporada</p>
+                    <p className="text-xl font-bold text-amber-800">{seasonTotal.toFixed(1)} kg</p>
+                  </div>
+
+                  {Object.entries(byType).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(byType).map(([type, kg]) => (
+                        <div key={type} className="bg-gray-50 rounded-lg px-3 py-1.5 text-center">
+                          <p className="text-xs text-gray-500">{foodLabel(type as FoodType)}</p>
+                          <p className="text-sm font-semibold text-gray-700">{kg.toFixed(1)} kg</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent records */}
+                {recent.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Últimos registros
+                    </p>
+                    <ul className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                      {recent.map((f) => (
+                        <li key={f.id} className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-gray-50">
+                          <div className="flex items-center gap-2 flex-wrap text-sm">
+                            <span className="text-gray-400 text-xs">{formatDate(f.date)}</span>
+                            <span className="font-medium text-gray-700">{foodLabel(f.food_type)}</span>
+                            <span className="text-amber-700 font-semibold">{f.quantity_kg} kg</span>
+                          </div>
+                          {f.hives && (
+                            <Link
+                              href={`/dashboard/hives/${f.hive_id}`}
+                              className="text-xs text-amber-600 hover:text-amber-700 font-medium shrink-0"
+                            >
+                              {f.hives.name} →
+                            </Link>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Hives list — ancho completo abajo */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
           <h2 className="font-semibold text-gray-900">
             Colmenas en este apiario
             <span className="ml-2 text-sm font-normal text-gray-400">({hives.length})</span>
           </h2>
-          <Link href="/dashboard/hives/new" className="text-sm text-amber-600 hover:text-amber-700 font-medium">
-            + Nueva colmena
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={`/dashboard/inspections/new?type=apiary&apiary_id=${apiary.id}`}
+              className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+            >
+              + Nueva inspección
+            </Link>
+            <Link href="/dashboard/hives/new" className="text-sm text-amber-600 hover:text-amber-700 font-medium">
+              + Nueva colmena
+            </Link>
+          </div>
         </div>
 
         {hives.length === 0 ? (

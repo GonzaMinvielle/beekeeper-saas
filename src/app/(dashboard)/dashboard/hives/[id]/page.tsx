@@ -1,9 +1,19 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Apiary, Hive, Inspection, Queen } from '@/lib/types/database.types'
+import type { Apiary, Hive, Inspection, Queen, Feeding } from '@/lib/types/database.types'
 import HiveDetailClient from './HiveDetailClient'
 
 type InspectionWithHealth = Inspection & { overall_health: number | null }
+
+export type ApiaryInspectionEvent = {
+  id: string
+  inspection_id: string
+  inspected_at: string
+  observation: string | null
+  priority: 'low' | 'medium' | 'high'
+  apiary_name: string | null
+  general_notes: string | null
+}
 
 async function getData(id: string) {
   const supabase = createClient()
@@ -27,7 +37,13 @@ async function getData(id: string) {
 
   if (!hive) notFound()
 
-  const [{ data: apiaries }, { data: inspections }, { data: queen }] = await Promise.all([
+  const [
+    { data: apiaries },
+    { data: inspections },
+    { data: queen },
+    { data: apiaryDetails },
+    { data: feedings },
+  ] = await Promise.all([
     supabase
       .from('apiaries')
       .select('*')
@@ -44,13 +60,49 @@ async function getData(id: string) {
       .select('*')
       .eq('hive_id', id)
       .maybeSingle(),
+    // Apiary inspections where this hive was marked
+    supabase
+      .from('apiary_inspection_details' as never)
+      .select(`
+        id,
+        inspection_id,
+        observation,
+        priority,
+        inspections!inner (
+          inspected_at,
+          general_notes,
+          apiaries ( name )
+        )
+      `)
+      .eq('hive_id', id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('feedings' as never)
+      .select('*')
+      .eq('hive_id', id)
+      .order('date', { ascending: false }),
   ])
+
+  // Flatten apiary details
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const apiaryEvents: ApiaryInspectionEvent[] = ((apiaryDetails ?? []) as any[]).map((d) => ({
+    id: d.id,
+    inspection_id: d.inspection_id,
+    inspected_at: d.inspections?.inspected_at ?? '',
+    observation: d.observation,
+    priority: d.priority,
+    apiary_name: d.inspections?.apiaries?.name ?? null,
+    general_notes: d.inspections?.general_notes ?? null,
+  }))
 
   return {
     hive,
     apiaries: (apiaries as Apiary[]) ?? [],
     inspections: (inspections as InspectionWithHealth[]) ?? [],
     queen: (queen as Queen | null) ?? null,
+    apiaryEvents,
+    feedings: (feedings as Feeding[]) ?? [],
   }
 }
 
@@ -59,6 +111,15 @@ export default async function HiveDetailPage({
 }: {
   params: { id: string }
 }) {
-  const { hive, apiaries, inspections, queen } = await getData(params.id)
-  return <HiveDetailClient hive={hive} apiaries={apiaries} inspections={inspections} queen={queen} />
+  const { hive, apiaries, inspections, queen, apiaryEvents, feedings } = await getData(params.id)
+  return (
+    <HiveDetailClient
+      hive={hive}
+      apiaries={apiaries}
+      inspections={inspections}
+      queen={queen}
+      apiaryEvents={apiaryEvents}
+      feedings={feedings}
+    />
+  )
 }

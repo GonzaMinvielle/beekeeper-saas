@@ -144,6 +144,72 @@ export async function uploadInspectionPhoto(
   return { success: true }
 }
 
+// ── Apiary-level inspection ────────────────────────────────────────────────
+
+export type ApiaryInspectionHiveInput = {
+  hive_id: string
+  observation: string
+  priority: 'low' | 'medium' | 'high'
+}
+
+export async function createApiaryInspection(
+  prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const ctx = await getOrgAndUser()
+  if (!ctx) return { error: 'No se encontró tu organización.' }
+
+  const apiaryId = formData.get('apiary_id') as string
+  if (!apiaryId) return { error: 'Seleccioná un apiario.' }
+
+  const hivesJson = formData.get('hives_with_attention') as string
+  let hivesWithAttention: ApiaryInspectionHiveInput[] = []
+  try {
+    hivesWithAttention = hivesJson ? JSON.parse(hivesJson) : []
+  } catch {
+    return { error: 'Error al procesar las colmenas marcadas.' }
+  }
+
+  const supabase = createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: inspection, error } = await (supabase.from('inspections') as any)
+    .insert({
+      organization_id: ctx.orgId,
+      hive_id: null,
+      inspector_id: ctx.userId,
+      inspection_level: 'apiary',
+      apiary_id: apiaryId,
+      inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),
+      weather_conditions: (formData.get('weather_conditions') as string) || null,
+      flowering_status: (formData.get('flowering_status') as string) || null,
+      general_notes: (formData.get('general_notes') as string) || null,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  if (hivesWithAttention.length > 0) {
+    const details = hivesWithAttention.map((h) => ({
+      inspection_id: inspection.id,
+      hive_id: h.hive_id,
+      observation: h.observation || null,
+      requires_attention: true,
+      priority: h.priority,
+      org_id: ctx.orgId,
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: detailError } = await (supabase.from('apiary_inspection_details') as any)
+      .insert(details)
+    if (detailError) return { error: detailError.message }
+  }
+
+  revalidatePath('/dashboard/inspections')
+  revalidatePath(`/dashboard/apiaries/${apiaryId}`)
+  redirect(`/dashboard/apiaries/${apiaryId}`)
+}
+
 export async function deleteInspectionPhoto(
   photoId: string,
   storagePath: string,

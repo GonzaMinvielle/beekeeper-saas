@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Apiary, Hive } from '@/lib/types/database.types'
+import type { Apiary, Hive, Feeding } from '@/lib/types/database.types'
 import ApiaryDetailClient from './ApiaryDetailClient'
 
 async function getData(id: string) {
@@ -25,13 +25,21 @@ async function getData(id: string) {
 
   if (!apiary) notFound()
 
-  const { data: hives } = await supabase
-    .from('hives')
-    .select('*')
-    .eq('apiary_id', id)
-    .order('name') as { data: Hive[] | null }
+  const [{ data: hives }, { data: feedings }] = await Promise.all([
+    supabase
+      .from('hives')
+      .select('*')
+      .eq('apiary_id', id)
+      .order('name') as unknown as Promise<{ data: Hive[] | null }>,
+    supabase
+      .from('feedings' as never)
+      .select('*, hives(name)')
+      .eq('apiary_id', id)
+      .order('date', { ascending: false })
+      .limit(20),
+  ])
 
-  return { apiary, hives: hives ?? [] }
+  return { apiary, hives: hives ?? [], feedings: (feedings as (Feeding & { hives: { name: string } | null })[]) ?? [] }
 }
 
 export default async function ApiaryDetailPage({
@@ -39,6 +47,6 @@ export default async function ApiaryDetailPage({
 }: {
   params: { id: string }
 }) {
-  const { apiary, hives } = await getData(params.id)
-  return <ApiaryDetailClient apiary={apiary} hives={hives} />
+  const { apiary, hives, feedings } = await getData(params.id)
+  return <ApiaryDetailClient apiary={apiary} hives={hives} feedings={feedings} />
 }

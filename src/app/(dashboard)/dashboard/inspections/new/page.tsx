@@ -1,12 +1,94 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getCachedHives, type CachedHive } from '@/lib/offline/db'
 import InspectionForm from './InspectionForm'
+import InspectionTypeSelector from './InspectionTypeSelector'
+
+type Apiary = { id: string; name: string }
 
 export default function NewInspectionPage() {
+  const searchParams = useSearchParams()
+  const type = searchParams.get('type')
+  const apiaryId = searchParams.get('apiary_id')
+  const router = useRouter()
+
+  // Redirect to apiary form when type+apiary_id present
+  useEffect(() => {
+    if (type === 'apiary' && apiaryId) {
+      router.replace(`/dashboard/inspections/apiary/new?apiary_id=${apiaryId}`)
+    }
+  }, [type, apiaryId, router])
+
+  if (type === 'apiary' && apiaryId) {
+    return <div className="max-w-xl"><div className="h-8 w-48 bg-gray-200 rounded animate-pulse" /></div>
+  }
+
+  if (type === 'hive') {
+    return <HiveInspectionLoader />
+  }
+
+  return <SelectorLoader />
+}
+
+// ── Loads apiaries and renders the type selector ──────────────────────────
+
+function SelectorLoader() {
+  const [apiaries, setApiaries] = useState<Apiary[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.push('/login'); return }
+
+        const { data: memberData } = await supabase
+          .from('org_members')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single()
+
+        const member = memberData as { organization_id: string } | null
+        if (!member) { router.push('/dashboard'); return }
+
+        const { data } = await supabase
+          .from('apiaries')
+          .select('id, name')
+          .eq('organization_id', member.organization_id)
+          .order('name')
+
+        setApiaries((data as Apiary[]) ?? [])
+      } catch {
+        setApiaries([])
+      }
+      setLoading(false)
+    }
+    load()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="max-w-xl space-y-4">
+        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-40 bg-gray-100 rounded-xl animate-pulse" />
+          <div className="h-40 bg-gray-100 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  return <InspectionTypeSelector apiaries={apiaries} />
+}
+
+// ── Loads hives and renders the existing hive inspection form ─────────────
+
+function HiveInspectionLoader() {
   const [hives, setHives] = useState<CachedHive[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -25,7 +107,6 @@ export default function NewInspectionPage() {
             .eq('user_id', user.id)
             .single()
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const member = memberData as { organization_id: string } | null
           if (!member) { router.push('/dashboard'); return }
 
@@ -49,7 +130,6 @@ export default function NewInspectionPage() {
             )
           }
         } catch {
-          // Caer a caché si falla la red
           const cached = await getCachedHives().catch(() => [] as CachedHive[])
           setHives(cached)
         }
@@ -59,7 +139,6 @@ export default function NewInspectionPage() {
       }
       setLoading(false)
     }
-
     load()
   }, [router])
 

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import type { FoodType } from '@/lib/types/database.types'
+import { foodTypes } from '@/lib/types/database.types'
 
 type RecentInspection = {
   id: string
@@ -48,7 +50,7 @@ async function getDashboardData(orgId: string) {
     apiariesRes, hivesRes, inspectionsRes,
     harvestsRes, tasksRes,
     recentInspRes, expiringMedsRes, pendingTasksRes,
-    salesRes, expensesRes,
+    salesRes, expensesRes, feedingsRes,
   ] = await Promise.all([
     supabase.from('apiaries').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
     supabase.from('hives').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'active'),
@@ -60,11 +62,23 @@ async function getDashboardData(orgId: string) {
     supabase.from('tasks').select('id, title, due_date, priority, status').eq('organization_id', orgId).in('status', ['pending', 'in_progress']).order('priority', { ascending: false }).order('due_date', { ascending: true, nullsFirst: false }).limit(5),
     supabase.from('sales').select('total').eq('organization_id', orgId).gte('sale_date', yearFrom).lte('sale_date', yearTo),
     supabase.from('expenses').select('amount').eq('organization_id', orgId).gte('expense_date', yearFrom).lte('expense_date', yearTo),
+    supabase.from('feedings' as never).select('food_type, quantity_kg, date').eq('org_id', orgId)
+      .gte('date', `${thisYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
+      .lte('date', `${thisYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-31`),
   ])
 
   const totalHarvestKg = (harvestsRes.data ?? []).reduce((s: number, h: { weight_kg: number }) => s + h.weight_kg, 0)
   const totalRevenue   = (salesRes.data ?? []).reduce((s: number, v: { total: number }) => s + v.total, 0)
   const totalExpenses  = (expensesRes.data ?? []).reduce((s: number, e: { amount: number }) => s + e.amount, 0)
+
+  // Feeding aggregates this month
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const feedingRows = (feedingsRes.data ?? []) as any[]
+  const feedingMonthTotal = feedingRows.reduce((s: number, f: { quantity_kg: number }) => s + Number(f.quantity_kg), 0)
+  const feedingByType = feedingRows.reduce<Record<string, number>>((acc, f: { food_type: string; quantity_kg: number }) => {
+    acc[f.food_type] = (acc[f.food_type] ?? 0) + Number(f.quantity_kg)
+    return acc
+  }, {})
 
   return {
     stats: {
@@ -79,6 +93,8 @@ async function getDashboardData(orgId: string) {
     recentInspections: (recentInspRes.data as RecentInspection[]) ?? [],
     expiringMeds:      (expiringMedsRes.data as ExpiringMed[]) ?? [],
     pendingTasks:      (pendingTasksRes.data as PendingTask[]) ?? [],
+    feedingMonthTotal,
+    feedingByType,
   }
 }
 
@@ -100,7 +116,7 @@ export default async function DashboardPage() {
     return <div className="text-center py-20 text-gray-500">No se encontró una organización asociada.</div>
   }
 
-  const { stats, recentInspections, expiringMeds, pendingTasks } = await getDashboardData(orgId)
+  const { stats, recentInspections, expiringMeds, pendingTasks, feedingMonthTotal, feedingByType } = await getDashboardData(orgId)
 
   const margin = stats.totalRevenue - stats.totalExpenses
   const cards = [
@@ -236,6 +252,35 @@ export default async function DashboardPage() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Alimentación este mes */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="p-5 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Alimentación este mes</h2>
+        </div>
+        {feedingMonthTotal === 0 ? (
+          <div className="p-6 text-center text-gray-400 text-sm">
+            Sin registros de alimentación este mes.
+          </div>
+        ) : (
+          <div className="p-5 flex items-center gap-4 flex-wrap">
+            <div className="bg-amber-50 rounded-lg px-4 py-2.5 shrink-0">
+              <p className="text-xs text-amber-600 font-medium">Total este mes</p>
+              <p className="text-xl font-bold text-amber-800">{feedingMonthTotal.toFixed(1)} kg</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(feedingByType).map(([type, kg]) => (
+                <div key={type} className="bg-gray-50 rounded-lg px-3 py-1.5 text-center border border-gray-100">
+                  <p className="text-xs text-gray-500">
+                    {foodTypes.find((f) => f.value === type)?.label ?? type}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-700">{(kg as number).toFixed(1)} kg</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
