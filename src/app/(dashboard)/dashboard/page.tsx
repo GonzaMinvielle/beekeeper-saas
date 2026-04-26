@@ -49,7 +49,7 @@ async function getDashboardData(orgId: string) {
     apiariesRes, hivesRes, inspectionsRes,
     harvestsRes, tasksRes,
     recentInspRes, expiringMedsRes, pendingTasksRes,
-    salesRes, expensesRes, feedingsRes,
+    salesRes, expensesRes, feedingsRes, supersRes,
   ] = await Promise.all([
     supabase.from('apiaries').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
     supabase.from('hives').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'active'),
@@ -64,11 +64,21 @@ async function getDashboardData(orgId: string) {
     supabase.from('feedings' as never).select('food_type, quantity_kg, date').eq('org_id', orgId)
       .gte('date', `${thisYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
       .lte('date', `${thisYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-31`),
+    supabase.from('hive_supers' as never).select('id, placed_at').eq('org_id', orgId).is('removed_at', null),
   ])
 
   const totalHarvestKg = (harvestsRes.data ?? []).reduce((s: number, h: { weight_kg: number }) => s + h.weight_kg, 0)
   const totalRevenue   = (salesRes.data ?? []).reduce((s: number, v: { total: number }) => s + v.total, 0)
   const totalExpenses  = (expensesRes.data ?? []).reduce((s: number, e: { amount: number }) => s + e.amount, 0)
+
+  // Active supers stats
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supersRows = (supersRes.data ?? []) as any[]
+  const totalActiveSupers = supersRows.length
+  const supersReadyToHarvest = supersRows.filter((s: { placed_at: string }) => {
+    const days = Math.floor((Date.now() - new Date(s.placed_at).getTime()) / 86400000)
+    return days >= 21
+  }).length
 
   // Feeding aggregates this month
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,6 +104,8 @@ async function getDashboardData(orgId: string) {
     pendingTasks:      (pendingTasksRes.data as PendingTask[]) ?? [],
     feedingMonthTotal,
     feedingByType,
+    totalActiveSupers,
+    supersReadyToHarvest,
   }
 }
 
@@ -115,7 +127,7 @@ export default async function DashboardPage() {
     return <div className="text-center py-20 text-gray-500">No se encontró una organización asociada.</div>
   }
 
-  const { stats, recentInspections, expiringMeds, pendingTasks, feedingMonthTotal, feedingByType } = await getDashboardData(orgId)
+  const { stats, recentInspections, expiringMeds, pendingTasks, feedingMonthTotal, feedingByType, totalActiveSupers, supersReadyToHarvest } = await getDashboardData(orgId)
 
   const margin = stats.totalRevenue - stats.totalExpenses
   const cards = [
@@ -252,6 +264,33 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Alzas activas */}
+      {totalActiveSupers > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="p-5 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Alzas activas</h2>
+          </div>
+          <div className="p-5 flex items-center gap-4 flex-wrap">
+            <div className="bg-green-50 rounded-lg px-4 py-2.5 shrink-0">
+              <p className="text-xs text-green-600 font-medium">Total activas</p>
+              <p className="text-xl font-bold text-green-800">{totalActiveSupers}</p>
+            </div>
+            {supersReadyToHarvest > 0 && (
+              <div className="bg-yellow-50 rounded-lg px-4 py-2.5 shrink-0">
+                <p className="text-xs text-yellow-600 font-medium">Listas para cosechar</p>
+                <p className="text-xl font-bold text-yellow-800">{supersReadyToHarvest}</p>
+              </div>
+            )}
+            <Link
+              href="/dashboard/apiaries"
+              className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+            >
+              Ver apiarios →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Alimentación este mes */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">

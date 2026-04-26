@@ -152,6 +152,10 @@ export type ApiaryInspectionHiveInput = {
   priority: 'low' | 'medium' | 'high'
 }
 
+type SuperChange =
+  | { hive_id: string; action: 'add' }
+  | { hive_id: string; action: 'remove'; super_id: string }
+
 export async function createApiaryInspection(
   prevState: FormState,
   formData: FormData
@@ -205,8 +209,34 @@ export async function createApiaryInspection(
     if (detailError) return { error: detailError.message }
   }
 
+  // Handle supers changes
+  const supersJson = formData.get('supers_changes') as string
+  let supersChanges: SuperChange[] = []
+  try {
+    supersChanges = supersJson ? JSON.parse(supersJson) : []
+  } catch { /* ignore malformed */ }
+
+  const inspectedDate = (formData.get('inspected_at') as string || new Date().toISOString()).slice(0, 10)
+
+  for (const change of supersChanges) {
+    if (change.action === 'add') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('hive_supers') as any).insert({
+        org_id: ctx.orgId,
+        hive_id: change.hive_id,
+        placed_at: inspectedDate,
+      })
+    } else if (change.action === 'remove') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('hive_supers') as any)
+        .update({ removed_at: inspectedDate, removal_reason: 'other' })
+        .eq('id', change.super_id)
+    }
+  }
+
   revalidatePath('/dashboard/inspections')
   revalidatePath(`/dashboard/apiaries/${apiaryId}`)
+  revalidatePath('/dashboard')
   redirect(`/dashboard/apiaries/${apiaryId}`)
 }
 

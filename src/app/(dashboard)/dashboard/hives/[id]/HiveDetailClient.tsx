@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { updateHive, deleteHive } from '@/lib/actions/hives'
 import { saveQueen } from '@/lib/actions/queens'
 import { createFeeding, deleteFeeding } from '@/lib/actions/feedings'
-import type { Apiary, Hive, Inspection, Queen, MarkingColor, Feeding, FoodType } from '@/lib/types/database.types'
+import { addHiveSuper, removeHiveSuper, deleteHiveSuper } from '@/lib/actions/hive_supers'
+import type { Apiary, Hive, Inspection, Queen, MarkingColor, Feeding, FoodType, HiveSuper } from '@/lib/types/database.types'
 import { foodTypes } from '@/lib/types/database.types'
 import type { ApiaryInspectionEvent } from './page'
 
@@ -304,6 +305,283 @@ function QueenSection({ hiveId, queen }: { hiveId: string; queen: Queen | null }
   )
 }
 
+// ── Supers panel ──────────────────────────────────────────────────────────
+
+const DAYS_READY = 21
+const DAYS_ALERT = 30
+
+function daysSince(dateStr: string): number {
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+}
+
+function RemoveSuperForm({
+  super: s,
+  hiveId,
+  onCancel,
+}: {
+  super: HiveSuper
+  hiveId: string
+  onCancel: () => void
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const action = removeHiveSuper.bind(null, s.id, hiveId)
+  return (
+    <form action={action} className="mt-3 ml-8 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de retiro</label>
+          <input
+            name="removed_at"
+            type="date"
+            defaultValue={today}
+            required
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm
+                       focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+          <select
+            name="removal_reason"
+            defaultValue="harvest"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white
+                       focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+          >
+            <option value="harvest">Para cosechar</option>
+            <option value="other">Otro motivo</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Notas (opcional)</label>
+        <textarea
+          name="notes"
+          rows={1}
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm
+                     focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
+        >
+          Confirmar retiro
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-gray-500 hover:text-gray-700"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function SupersPanel({
+  hiveId,
+  supers,
+}: {
+  hiveId: string
+  supers: HiveSuper[]
+}) {
+  const activeSupers = supers.filter((s) => !s.removed_at)
+  const removedSupers = supers.filter((s) => s.removed_at)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+
+  const addWithHiveId = addHiveSuper.bind(null, hiveId)
+  const [addState, addAction] = useFormState(addWithHiveId, {})
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  useEffect(() => {
+    if (addState.success) setShowAddForm(false)
+  }, [addState])
+
+  const formatDate = (d: string) => {
+    const [y, m, day] = d.split('-')
+    return `${day}/${m}/${y}`
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+      {/* Header */}
+      <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="font-semibold text-gray-900">Alzas</h2>
+          {activeSupers.length > 0 ? (
+            <span className="text-xs bg-green-100 text-green-700 font-medium px-2.5 py-1 rounded-full">
+              {activeSupers.length} activa{activeSupers.length !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="text-xs bg-gray-100 text-gray-500 font-medium px-2.5 py-1 rounded-full">
+              Sin alzas
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddForm((v) => !v)}
+          className="w-7 h-7 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-700
+                     flex items-center justify-center text-lg font-bold transition-colors"
+          title="Agregar alza"
+        >
+          {showAddForm ? '×' : '+'}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showAddForm && (
+        <div className="p-5 border-b border-gray-100 bg-gray-50">
+          {addState.error && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {addState.error}
+            </div>
+          )}
+          <form action={addAction} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de colocación</label>
+                <input
+                  name="placed_at"
+                  type="date"
+                  defaultValue={today}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Notas (opcional)</label>
+              <textarea
+                name="notes"
+                rows={1}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <SaveButton label="Agregar alza" />
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Active supers list */}
+      {activeSupers.length === 0 && !showAddForm ? (
+        <div className="p-6 text-center text-gray-400 text-sm">Sin alzas activas</div>
+      ) : activeSupers.length > 0 ? (
+        <ul className="divide-y divide-gray-50">
+          {activeSupers.map((s) => {
+            const days = daysSince(s.placed_at)
+            const isReady = days >= DAYS_READY
+            const isAlert = days >= DAYS_ALERT
+            return (
+              <li key={s.id} className="px-5 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-gray-700">Colocada {formatDate(s.placed_at)}</span>
+                    {isAlert ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+                        {days}d — ¡Retirar urgente!
+                      </span>
+                    ) : isReady ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                        {days}d — Lista para cosechar
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">{days}d</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRemovingId(removingId === s.id ? null : s.id)}
+                      className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                    >
+                      Retirar
+                    </button>
+                    <form action={deleteHiveSuper.bind(null, s.id, hiveId)}>
+                      <button
+                        type="submit"
+                        onClick={(e) => { if (!confirm('¿Eliminar este alza?')) e.preventDefault() }}
+                        className="text-xs text-red-400 hover:text-red-600"
+                        title="Eliminar"
+                      >
+                        ×
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                {s.notes && <p className="text-xs text-gray-500 mt-0.5">{s.notes}</p>}
+                {removingId === s.id && (
+                  <RemoveSuperForm
+                    super={s}
+                    hiveId={hiveId}
+                    onCancel={() => setRemovingId(null)}
+                  />
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+
+      {/* Removed history */}
+      {removedSupers.length > 0 && (
+        <div className="border-t border-gray-100">
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            className="w-full px-5 py-3 text-xs text-gray-400 hover:text-gray-600 text-left flex items-center gap-1"
+          >
+            {showHistory ? '▾' : '▸'} Historial ({removedSupers.length} retirada{removedSupers.length !== 1 ? 's' : ''})
+          </button>
+          {showHistory && (
+            <ul className="divide-y divide-gray-50 pb-2">
+              {removedSupers.map((s) => (
+                <li key={s.id} className="px-5 py-2.5 flex items-center justify-between gap-2">
+                  <div className="text-xs text-gray-500 space-y-0.5">
+                    <div>
+                      Colocada {formatDate(s.placed_at)} — Retirada {s.removed_at ? formatDate(s.removed_at) : '—'}
+                    </div>
+                    <div className="text-gray-400">
+                      {s.removal_reason === 'harvest' ? 'Para cosechar' : 'Otro motivo'}
+                      {s.notes ? ` · ${s.notes}` : ''}
+                    </div>
+                  </div>
+                  <form action={deleteHiveSuper.bind(null, s.id, hiveId)}>
+                    <button
+                      type="submit"
+                      onClick={(e) => { if (!confirm('¿Eliminar este registro?')) e.preventDefault() }}
+                      className="text-xs text-red-400 hover:text-red-600 shrink-0"
+                      title="Eliminar"
+                    >
+                      ×
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Feeding panel ──────────────────────────────────────────────────────────
 
 function FeedingPanel({
@@ -502,6 +780,7 @@ export default function HiveDetailClient({
   queen,
   apiaryEvents,
   feedings,
+  supers,
 }: {
   hive: Hive
   apiaries: Apiary[]
@@ -509,6 +788,7 @@ export default function HiveDetailClient({
   queen: Queen | null
   apiaryEvents: ApiaryInspectionEvent[]
   feedings: Feeding[]
+  supers: HiveSuper[]
 }) {
   const updateWithId = updateHive.bind(null, hive.id)
   const [state, formAction] = useFormState(updateWithId, {})
@@ -675,8 +955,9 @@ export default function HiveDetailClient({
           <QueenSection hiveId={hive.id} queen={queen} />
         </div>
 
-        {/* RIGHT: Feeding panel */}
-        <div>
+        {/* RIGHT: Supers + Feeding */}
+        <div className="space-y-6">
+          <SupersPanel hiveId={hive.id} supers={supers} />
           <FeedingPanel hiveId={hive.id} feedings={feedings} />
         </div>
       </div>

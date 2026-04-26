@@ -32,6 +32,7 @@ export type WeatherCondition = 'soleado' | 'nublado' | 'lluvioso' | 'viento'
 export type FloweringStatus = 'activa' | 'escasa' | 'nula'
 export type InspectionDetailPriority = 'low' | 'medium' | 'high'
 export type FoodType = 'azucar' | 'jarabe' | 'candy' | 'proteico' | 'polen' | 'otro'
+export type RemovalReason = 'harvest' | 'other'
 
 export interface Database {
   public: {
@@ -281,6 +282,60 @@ export interface Database {
           observation?: string | null
           requires_attention?: boolean
           priority?: InspectionDetailPriority
+        }
+      }
+      rainfall_records: {
+        Row: {
+          id: string
+          org_id: string
+          apiary_id: string
+          date: string
+          mm_recorded: number
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          apiary_id: string
+          date: string
+          mm_recorded: number
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          mm_recorded?: number
+          notes?: string | null
+        }
+      }
+      hive_supers: {
+        Row: {
+          id: string
+          org_id: string
+          hive_id: string
+          placed_at: string
+          removed_at: string | null
+          removal_reason: RemovalReason | null
+          harvest_id: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          hive_id: string
+          placed_at: string
+          removed_at?: string | null
+          removal_reason?: RemovalReason | null
+          harvest_id?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          removed_at?: string | null
+          removal_reason?: RemovalReason | null
+          harvest_id?: string | null
+          notes?: string | null
         }
       }
       feedings: {
@@ -831,9 +886,11 @@ export type ForumPost = Database['public']['Tables']['forum_posts']['Row']
 export type ForumReply = Database['public']['Tables']['forum_replies']['Row']
 export type DiseaseEntry = Database['public']['Tables']['disease_library']['Row']
 
-// Tipos de conveniencia — Etapa 5 (inspecciones de apiario + alimentación)
+// Tipos de conveniencia — Etapa 5 (inspecciones de apiario + alimentación + alzas)
 export type ApiaryInspectionDetail = Database['public']['Tables']['apiary_inspection_details']['Row']
 export type Feeding = Database['public']['Tables']['feedings']['Row']
+export type HiveSuper = Database['public']['Tables']['hive_supers']['Row']
+export type RainfallRecord = Database['public']['Tables']['rainfall_records']['Row']
 
 export const foodTypes: { value: FoodType; label: string }[] = [
   { value: 'azucar',    label: 'Azúcar' },

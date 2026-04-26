@@ -1,10 +1,11 @@
 'use client'
 
 import { useFormState, useFormStatus } from 'react-dom'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { updateApiary, deleteApiary } from '@/lib/actions/apiaries'
-import type { Apiary, Hive, HiveStatus, Feeding, FoodType } from '@/lib/types/database.types'
+import { upsertRainfall, deleteRainfall } from '@/lib/actions/rainfall'
+import type { Apiary, Hive, HiveStatus, Feeding, FoodType, HiveSuper, RainfallRecord } from '@/lib/types/database.types'
 import { foodTypes } from '@/lib/types/database.types'
 import MapLoader from '@/components/map/MapLoader'
 import ApiaryWeatherForecast from '@/components/weather/ApiaryWeatherForecast'
@@ -16,7 +17,7 @@ const statusConfig: Record<HiveStatus, { label: string; color: string }> = {
   sold:     { label: 'Vendida',  color: 'bg-blue-100 text-blue-700' },
 }
 
-function SaveButton() {
+function SaveButton({ label = 'Guardar cambios' }: { label?: string }) {
   const { pending } = useFormStatus()
   return (
     <button
@@ -25,19 +26,227 @@ function SaveButton() {
       className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300
                  text-white font-semibold text-sm rounded-lg transition-colors"
     >
-      {pending ? 'Guardando...' : 'Guardar cambios'}
+      {pending ? 'Guardando...' : label}
     </button>
   )
 }
+
+// ── Rainfall panel ────────────────────────────────────────���───────────────
+
+function RainfallPanel({
+  apiaryId,
+  records,
+}: {
+  apiaryId: string
+  records: RainfallRecord[]
+}) {
+  // mode: 'idle' | 'add' | 'conflict'
+  const [mode, setMode] = useState<'idle' | 'add' | 'conflict'>('idle')
+  const [conflict, setConflict] = useState<{ date: string; existing_mm: number } | null>(null)
+  const upsertWithId = upsertRainfall.bind(null, apiaryId)
+  const [state, formAction] = useFormState(upsertWithId, {})
+  const today = new Date().toISOString().slice(0, 10)
+
+  const thisYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth() + 1
+  const yearTotal = records.reduce((s, r) => s + Number(r.mm_recorded), 0)
+  const monthTotal = records
+    .filter((r) => new Date(r.date).getMonth() + 1 === currentMonth)
+    .reduce((s, r) => s + Number(r.mm_recorded), 0)
+
+  useEffect(() => {
+    if (state.success) setMode('idle')
+    if (state.conflict) { setConflict(state.conflict); setMode('conflict') }
+  }, [state])
+
+  const formatDate = (d: string) => {
+    const [, m, day] = d.split('-')
+    return `${day}/${m}`
+  }
+
+  const recent = records.slice(0, 10)
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+      <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-gray-900">Pluviometría</h2>
+          <p className="text-xs text-gray-400 mt-0.5">{thisYear}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMode(mode === 'add' ? 'idle' : 'add')}
+          className="w-7 h-7 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700
+                     flex items-center justify-center text-lg font-bold transition-colors"
+          title="Registrar lluvia"
+        >
+          {mode === 'add' ? '×' : '+'}
+        </button>
+      </div>
+
+      {/* Totals */}
+      {records.length > 0 && (
+        <div className="px-5 pt-4 pb-1 flex gap-4 flex-wrap">
+          <div className="bg-blue-50 rounded-lg px-4 py-2">
+            <p className="text-xs text-blue-600 font-medium">Este mes</p>
+            <p className="text-lg font-bold text-blue-800">{monthTotal.toFixed(1)} mm</p>
+          </div>
+          <div className="bg-blue-50 rounded-lg px-4 py-2">
+            <p className="text-xs text-blue-600 font-medium">Total {thisYear}</p>
+            <p className="text-lg font-bold text-blue-800">{yearTotal.toFixed(1)} mm</p>
+          </div>
+        </div>
+      )}
+
+      {/* Add form */}
+      {mode === 'add' && (
+        <div className="p-5 border-b border-gray-100 bg-gray-50">
+          {state.error && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {state.error}
+            </div>
+          )}
+          <form action={formAction} className="space-y-3">
+            <input type="hidden" name="force" value="false" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
+                <input
+                  name="date"
+                  type="date"
+                  defaultValue={today}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Milímetros</label>
+                <input
+                  name="mm_recorded"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  required
+                  placeholder="Ej: 12.5"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Notas (opcional)</label>
+              <textarea
+                name="notes"
+                rows={1}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <SaveButton label="Registrar" />
+              <button type="button" onClick={() => setMode('idle')}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Conflict: existing record for same date */}
+      {mode === 'conflict' && conflict && (
+        <div className="p-5 border-b border-gray-100 bg-yellow-50">
+          <p className="text-sm font-medium text-yellow-800 mb-3">
+            Ya registraste {conflict.existing_mm} mm para el {conflict.date}. Ingresá el nuevo valor para reemplazarlo.
+          </p>
+          <form action={formAction} className="space-y-3">
+            <input type="hidden" name="force" value="true" />
+            <input type="hidden" name="date" value={conflict.date} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-yellow-700 mb-1">Nuevo valor (mm)</label>
+                <input
+                  name="mm_recorded"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  required
+                  placeholder={String(conflict.existing_mm)}
+                  className="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-yellow-700 mb-1">Notas (opcional)</label>
+                <input
+                  name="notes"
+                  type="text"
+                  className="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Reemplazar
+              </button>
+              <button type="button" onClick={() => { setMode('idle'); setConflict(null) }}
+                className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* List */}
+      {recent.length === 0 && mode === 'idle' ? (
+        <div className="p-6 text-center text-gray-400 text-sm">
+          Sin registros de lluvia este año.
+        </div>
+      ) : recent.length > 0 ? (
+        <ul className="divide-y divide-gray-50">
+          {recent.map((r) => (
+            <li key={r.id} className="px-5 py-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-gray-400 font-mono">{formatDate(r.date)}</span>
+                <span className="text-sm font-semibold text-blue-700">{Number(r.mm_recorded).toFixed(1)} mm</span>
+                {r.notes && <span className="text-xs text-gray-500">{r.notes}</span>}
+              </div>
+              <form action={deleteRainfall.bind(null, r.id, apiaryId)}>
+                <button
+                  type="submit"
+                  onClick={(e) => { if (!confirm('¿Eliminar este registro?')) e.preventDefault() }}
+                  className="text-xs text-red-400 hover:text-red-600 shrink-0"
+                  title="Eliminar"
+                >
+                  ×
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────
 
 export default function ApiaryDetailClient({
   apiary,
   hives,
   feedings,
+  activeSupers,
+  rainfall,
 }: {
   apiary: Apiary
   hives: Hive[]
   feedings: (Feeding & { hives: { name: string } | null })[]
+  activeSupers: Pick<HiveSuper, 'id' | 'hive_id' | 'placed_at'>[]
+  rainfall: RainfallRecord[]
 }) {
   const updateWithId = updateApiary.bind(null, apiary.id)
   const [state, formAction] = useFormState(updateWithId, {})
@@ -360,6 +569,124 @@ export default function ApiaryDetailClient({
           </div>
         )
       })()}
+
+      {/* Alzas del apiario */}
+      {(() => {
+        const DAYS_READY = 21
+        const DAYS_ALERT = 30
+        const now = Date.now()
+
+        const hivesWithSuper = new Set(activeSupers.map((s) => s.hive_id))
+        const hivesWithoutSuper = hives.filter((h) => h.status === 'active' && !hivesWithSuper.has(h.id))
+        const totalActive = activeSupers.length
+
+        const readySupers = activeSupers.filter((s) => {
+          const days = Math.floor((now - new Date(s.placed_at).getTime()) / 86400000)
+          return days >= DAYS_READY
+        })
+        const alertSupers = activeSupers.filter((s) => {
+          const days = Math.floor((now - new Date(s.placed_at).getTime()) / 86400000)
+          return days >= DAYS_ALERT
+        })
+
+        // Per-hive: oldest active super days
+        const hiveSuperDays: Record<string, number> = {}
+        for (const s of activeSupers) {
+          const days = Math.floor((now - new Date(s.placed_at).getTime()) / 86400000)
+          if (hiveSuperDays[s.hive_id] === undefined || days > hiveSuperDays[s.hive_id]) {
+            hiveSuperDays[s.hive_id] = days
+          }
+        }
+
+        const hivesReadyToHarvest = hives.filter(
+          (h) => hiveSuperDays[h.id] !== undefined && hiveSuperDays[h.id] >= DAYS_READY
+        )
+
+        return (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div className="p-5 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Alzas del apiario</h2>
+            </div>
+
+            {totalActive === 0 ? (
+              <div className="p-6 text-center text-gray-400 text-sm">
+                Sin alzas activas en este apiario.
+              </div>
+            ) : (
+              <div className="p-5 space-y-4">
+                {/* Alerts */}
+                {alertSupers.length > 0 && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm font-semibold text-red-800">
+                      ⚠️ {alertSupers.length} alza{alertSupers.length !== 1 ? 's' : ''} con más de {DAYS_ALERT} días — cosechar urgente
+                    </p>
+                  </div>
+                )}
+
+                {/* Summary */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="bg-green-50 rounded-lg px-4 py-2.5">
+                    <p className="text-xs text-green-600 font-medium">Alzas activas</p>
+                    <p className="text-xl font-bold text-green-800">{totalActive}</p>
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-0.5">
+                    <p>
+                      <span className="font-medium">{hivesWithSuper.size}</span> colmena{hivesWithSuper.size !== 1 ? 's' : ''} con alza
+                      {' · '}
+                      <span className="font-medium">{hivesWithoutSuper.length}</span> sin alza
+                    </p>
+                    {readySupers.length > 0 && (
+                      <p className="text-yellow-700">
+                        <span className="font-medium">{readySupers.length}</span> lista{readySupers.length !== 1 ? 's' : ''} para cosechar (+{DAYS_READY}d)
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Per-hive ready list */}
+                {hivesReadyToHarvest.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Listas para cosechar
+                    </p>
+                    <ul className="divide-y divide-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                      {hivesReadyToHarvest.map((h) => {
+                        const days = hiveSuperDays[h.id]
+                        const isAlert = days >= DAYS_ALERT
+                        return (
+                          <li key={h.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-gray-50">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-800">{h.name}</span>
+                              {isAlert ? (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+                                  {days}d — ¡Urgente!
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                                  {days}d — Lista
+                                </span>
+                              )}
+                            </div>
+                            <Link
+                              href={`/dashboard/hives/${h.id}`}
+                              className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                            >
+                              Ver →
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Pluviometría */}
+      <RainfallPanel apiaryId={apiary.id} records={rainfall} />
 
       {/* Hives list — ancho completo abajo */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">

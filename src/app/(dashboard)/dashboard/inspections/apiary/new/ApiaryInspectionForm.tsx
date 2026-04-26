@@ -4,6 +4,9 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createApiaryInspection } from '@/lib/actions/inspections'
 type PartialHive = { id: string; name: string; code: string | null }
+type ActiveSuper = { id: string; hive_id: string; placed_at: string }
+
+type HiveSuperChange = { hive_id: string; action: 'add' } | { hive_id: string; action: 'remove'; super_id: string }
 
 const weatherOptions = [
   { value: 'soleado',  label: 'Soleado' },
@@ -34,10 +37,12 @@ export default function ApiaryInspectionForm({
   apiaryId,
   apiaryName,
   hives,
+  activeSupers,
 }: {
   apiaryId: string
   apiaryName: string
   hives: PartialHive[]
+  activeSupers: ActiveSuper[]
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +54,16 @@ export default function ApiaryInspectionForm({
       hives.map((h: PartialHive) => [h.id, { checked: false, observation: '', priority: 'low' }])
     )
   )
+
+  // Track supers changes per hive: add=true means user added, remove=true means user removed
+  const [supersAdded, setSupersAdded] = useState<Record<string, boolean>>({})
+  const [supersRemoved, setSupersRemoved] = useState<Record<string, boolean>>({})
+
+  // Map hive_id → oldest active super id (for removal)
+  const activeSupersMap: Record<string, string> = {}
+  for (const s of activeSupers) {
+    if (!activeSupersMap[s.hive_id]) activeSupersMap[s.hive_id] = s.id
+  }
 
   function toggleHive(hiveId: string) {
     setHiveState((prev) => ({
@@ -80,6 +95,17 @@ export default function ApiaryInspectionForm({
       }))
 
     formData.set('hives_with_attention', JSON.stringify(hivesWithAttention))
+
+    const supersChanges: HiveSuperChange[] = []
+    for (const hive of hives) {
+      if (supersAdded[hive.id]) {
+        supersChanges.push({ hive_id: hive.id, action: 'add' })
+      }
+      if (supersRemoved[hive.id] && activeSupersMap[hive.id]) {
+        supersChanges.push({ hive_id: hive.id, action: 'remove', super_id: activeSupersMap[hive.id] })
+      }
+    }
+    formData.set('supers_changes', JSON.stringify(supersChanges))
 
     startTransition(async () => {
       const result = await createApiaryInspection({}, formData)
@@ -254,6 +280,63 @@ export default function ApiaryInspectionForm({
                         </div>
                       </div>
                     )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Supers changes card */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Cambios de alzas en esta visita</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Marcá los cambios realizados durante la inspección
+            </p>
+          </div>
+
+          {hives.length === 0 ? (
+            <div className="p-6 text-center text-gray-400 text-sm">
+              No hay colmenas activas en este apiario.
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {hives.map((hive) => {
+                const hasActiveSuper = !!activeSupersMap[hive.id]
+                return (
+                  <li key={hive.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-gray-800 flex-1">{hive.name}</span>
+                      <div className="flex items-center gap-4">
+                        {/* Add super */}
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!supersAdded[hive.id]}
+                            onChange={(e) =>
+                              setSupersAdded((prev) => ({ ...prev, [hive.id]: e.target.checked }))
+                            }
+                            className="w-4 h-4 accent-amber-500"
+                          />
+                          <span className="text-xs text-gray-600">Agregué alza</span>
+                        </label>
+
+                        {/* Remove super — only if active super exists */}
+                        <label className={`flex items-center gap-1.5 ${hasActiveSuper ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                          <input
+                            type="checkbox"
+                            checked={!!supersRemoved[hive.id]}
+                            disabled={!hasActiveSuper}
+                            onChange={(e) =>
+                              setSupersRemoved((prev) => ({ ...prev, [hive.id]: e.target.checked }))
+                            }
+                            className="w-4 h-4 accent-amber-500"
+                          />
+                          <span className="text-xs text-gray-600">Retiré alza</span>
+                        </label>
+                      </div>
+                    </div>
                   </li>
                 )
               })}

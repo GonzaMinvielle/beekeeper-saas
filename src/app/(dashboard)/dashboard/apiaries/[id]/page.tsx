@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { Apiary, Hive, Feeding } from '@/lib/types/database.types'
+import type { Apiary, Hive, Feeding, HiveSuper, RainfallRecord } from '@/lib/types/database.types'
 import ApiaryDetailClient from './ApiaryDetailClient'
 
 async function getData(id: string) {
@@ -39,7 +39,35 @@ async function getData(id: string) {
       .limit(20),
   ])
 
-  return { apiary, hives: hives ?? [], feedings: (feedings as (Feeding & { hives: { name: string } | null })[]) ?? [] }
+  const hiveIds = (hives ?? []).map((h) => h.id)
+  let activeSupers: HiveSuper[] = []
+  if (hiveIds.length > 0) {
+    const { data: supersData } = await supabase
+      .from('hive_supers' as never)
+      .select('id, hive_id, placed_at')
+      .in('hive_id', hiveIds)
+      .is('removed_at', null) as { data: Pick<HiveSuper, 'id' | 'hive_id' | 'placed_at'>[] | null }
+    activeSupers = (supersData ?? []) as HiveSuper[]
+  }
+
+  // Rainfall — last 10 records + year totals
+  const thisYear = new Date().getFullYear()
+  const { data: rainfallData } = await supabase
+    .from('rainfall_records' as never)
+    .select('*')
+    .eq('apiary_id', id)
+    .gte('date', `${thisYear}-01-01`)
+    .order('date', { ascending: false }) as { data: RainfallRecord[] | null }
+
+  const rainfall = rainfallData ?? []
+
+  return {
+    apiary,
+    hives: hives ?? [],
+    feedings: (feedings as (Feeding & { hives: { name: string } | null })[]) ?? [],
+    activeSupers,
+    rainfall,
+  }
 }
 
 export default async function ApiaryDetailPage({
@@ -47,6 +75,6 @@ export default async function ApiaryDetailPage({
 }: {
   params: { id: string }
 }) {
-  const { apiary, hives, feedings } = await getData(params.id)
-  return <ApiaryDetailClient apiary={apiary} hives={hives} feedings={feedings} />
+  const { apiary, hives, feedings, activeSupers, rainfall } = await getData(params.id)
+  return <ApiaryDetailClient apiary={apiary} hives={hives} feedings={feedings} activeSupers={activeSupers} rainfall={rainfall} />
 }

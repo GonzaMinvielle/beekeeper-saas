@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import type { HiveSuper } from '@/lib/types/database.types'
 import ApiaryInspectionForm from './ApiaryInspectionForm'
 
 export default async function NewApiaryInspectionPage({
@@ -40,11 +41,23 @@ export default async function NewApiaryInspectionPage({
 
   if (!apiary) redirect('/dashboard/apiaries')
 
+  const hiveIds = (hives ?? []).map((h) => h.id)
+  let activeSupers: Pick<HiveSuper, 'id' | 'hive_id' | 'placed_at'>[] = []
+  if (hiveIds.length > 0) {
+    const { data: supersData } = await supabase
+      .from('hive_supers' as never)
+      .select('id, hive_id, placed_at')
+      .in('hive_id', hiveIds)
+      .is('removed_at', null) as { data: Pick<HiveSuper, 'id' | 'hive_id' | 'placed_at'>[] | null }
+    activeSupers = supersData ?? []
+  }
+
   return (
     <ApiaryInspectionForm
       apiaryId={apiaryId}
       apiaryName={apiary.name}
       hives={hives ?? []}
+      activeSupers={activeSupers}
     />
   )
 }
