@@ -892,6 +892,29 @@ export type Feeding = Database['public']['Tables']['feedings']['Row']
 export type HiveSuper = Database['public']['Tables']['hive_supers']['Row']
 export type RainfallRecord = Database['public']['Tables']['rainfall_records']['Row']
 
+// Tipos de conveniencia — Equipo
+export type OrgInvitation = {
+  id: string
+  organization_id: string
+  invited_by: string
+  role: OrgRole
+  token: string
+  expires_at: string
+  accepted_at: string | null
+  accepted_by: string | null
+  created_at: string
+}
+
+export type OrgMemberWithEmail = {
+  id: string
+  organization_id: string
+  user_id: string
+  role: OrgRole
+  joined_at: string
+  display_name: string | null
+  email?: string
+}
+
 export const foodTypes: { value: FoodType; label: string }[] = [
   { value: 'azucar',    label: 'Azúcar' },
   { value: 'jarabe',    label: 'Jarabe' },

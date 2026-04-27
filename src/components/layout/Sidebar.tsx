@@ -45,6 +45,7 @@ const navGroups = [
   {
     label: 'Cuenta',
     links: [
+      { href: '/dashboard/team',    label: 'Equipo',      icon: '👥' },
       { href: '/pricing',           label: 'Planes',      icon: '⭐' },
       { href: '/dashboard/billing', label: 'Facturación', icon: '💳' },
       { href: '/dashboard/ayuda',   label: 'Ayuda',       icon: '❓' },

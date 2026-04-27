@@ -2,6 +2,8 @@
 
 import { useFormState, useFormStatus } from 'react-dom'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { login } from '@/lib/auth/actions'
 
 function SubmitButton() {
@@ -19,12 +21,20 @@ function SubmitButton() {
   )
 }
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const inviteToken = searchParams.get('invite')
   const [state, action] = useFormState(login, {})
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
       <h2 className="text-xl font-bold text-gray-900 mb-6">Bienvenido de vuelta</h2>
+
+      {inviteToken && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+          Iniciá sesión para aceptar la invitación al equipo.
+        </div>
+      )}
 
       {state.error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -33,6 +43,7 @@ export default function LoginPage() {
       )}
 
       <form action={action} className="space-y-4">
+        {inviteToken && <input type="hidden" name="invite_token" value={inviteToken} />}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
             Email
@@ -68,12 +79,29 @@ export default function LoginPage() {
         <SubmitButton />
       </form>
 
-      <p className="mt-6 text-center text-sm text-gray-600">
+      <p className="mt-4 text-center text-sm">
+        <Link href="/forgot-password" className="text-amber-600 hover:text-amber-700 font-medium">
+          ¿Olvidaste tu contraseña?
+        </Link>
+      </p>
+
+      <p className="mt-3 text-center text-sm text-gray-600">
         ¿No tenés cuenta?{' '}
-        <Link href="/register" className="text-amber-600 hover:text-amber-700 font-medium">
+        <Link
+          href={inviteToken ? `/register?invite=${inviteToken}` : '/register'}
+          className="text-amber-600 hover:text-amber-700 font-medium"
+        >
           Registrarse
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="bg-white rounded-2xl shadow-xl p-8"><p className="text-sm text-gray-500">Cargando...</p></div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
