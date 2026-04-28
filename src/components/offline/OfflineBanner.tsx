@@ -30,6 +30,17 @@ export default function OfflineBanner() {
       .catch(() => {})
   }, [isOnline])
 
+  // Poll mientras esté online con pendientes para detectar cuando termina el sync
+  useEffect(() => {
+    if (!isOnline || pendingCount === 0) return
+    const interval = setInterval(() => {
+      getPendingInspections()
+        .then((list) => setPendingCount(list.length))
+        .catch(() => {})
+    }, 1500)
+    return () => clearInterval(interval)
+  }, [isOnline, pendingCount])
+
   if (isOnline && pendingCount === 0) return null
 
   return (

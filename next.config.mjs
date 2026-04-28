@@ -13,17 +13,17 @@ const withPWA = withPWAInit({
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [
-      // Cache de páginas del dashboard (navegación)
+      // Imágenes de Supabase Storage (cache-first, 30 días)
       {
-        urlPattern: /^https?:\/\/.*\/dashboard(\/.*)?$/,
-        handler: 'NetworkFirst',
+        urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/,
+        handler: 'CacheFirst',
         options: {
-          cacheName: 'dashboard-pages',
-          networkTimeoutSeconds: 10,
-          expiration: { maxEntries: 30, maxAgeSeconds: 24 * 60 * 60 },
+          cacheName: 'supabase-images',
+          expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] },
         },
       },
-      // Cache de llamadas a Supabase (GET)
+      // Supabase REST API — forzar caché aunque responda Cache-Control: no-cache
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/,
         handler: 'NetworkFirst',
@@ -31,6 +31,18 @@ const withPWA = withPWAInit({
           cacheName: 'supabase-api',
           networkTimeoutSeconds: 8,
           expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+      // Páginas del dashboard — forzar caché aunque Next.js responda Cache-Control: no-store
+      {
+        urlPattern: /^https?:\/\/.*\/dashboard(\/.*)?$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'dashboard-pages',
+          networkTimeoutSeconds: 10,
+          expiration: { maxEntries: 30, maxAgeSeconds: 24 * 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] },
         },
       },
     ],
