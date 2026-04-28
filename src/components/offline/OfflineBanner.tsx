@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { getPendingInspections } from '@/lib/offline/db'
-import { useOfflineSync } from '@/lib/offline/useSync'
 
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
-
-  useOfflineSync()
 
   useEffect(() => {
     setIsOnline(navigator.onLine)

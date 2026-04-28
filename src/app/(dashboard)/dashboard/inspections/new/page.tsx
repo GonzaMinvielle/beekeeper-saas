@@ -42,6 +42,11 @@ function SelectorLoader() {
 
   useEffect(() => {
     async function load() {
+      if (!navigator.onLine) {
+        setApiaries([])
+        setLoading(false)
+        return
+      }
       try {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
