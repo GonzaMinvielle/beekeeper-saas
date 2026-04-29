@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createInspection } from '@/lib/actions/inspections'
-import { savePendingInspection } from '@/lib/offline/db'
+import { savePendingInspection, generateId } from '@/lib/offline/db'
 import type { CachedHive } from '@/lib/offline/db'
 
 const weatherOptions = ['Soleado', 'Nublado', 'Parcialmente nublado', 'Viento leve', 'Viento fuerte', 'Lluvia']
@@ -36,7 +36,7 @@ export default function InspectionForm({ hives }: { hives: CachedHive[] }) {
     const saveOffline = async () => {
       const hive = hives.find(h => h.id === hiveId)
       await savePendingInspection({
-        id: crypto.randomUUID(),
+        id: generateId(),
         hive_id: hiveId,
         hive_name: hive?.name ?? '',
         inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),

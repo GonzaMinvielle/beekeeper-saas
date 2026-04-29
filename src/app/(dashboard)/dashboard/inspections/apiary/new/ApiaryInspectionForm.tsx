@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createApiaryInspection } from '@/lib/actions/inspections'
-import { savePendingApiaryInspection } from '@/lib/offline/db'
+import { savePendingApiaryInspection, generateId } from '@/lib/offline/db'
 type PartialHive = { id: string; name: string; code: string | null }
 type ActiveSuper = { id: string; hive_id: string; placed_at: string }
 
@@ -111,7 +111,7 @@ export default function ApiaryInspectionForm({
     formData.set('supers_changes', JSON.stringify(supersChanges))
 
     const pendingData = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       apiary_id: apiaryId,
       apiary_name: apiaryName,
       inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),
