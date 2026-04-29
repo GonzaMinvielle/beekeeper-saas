@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/client'
 import {
   setCachedHives,
   setCachedInspections,
+  setCachedApiaries,
   type CachedHive,
   type CachedInspection,
+  type CachedApiary,
 } from './db'
 
 export async function cacheDataForOffline(): Promise<void> {
@@ -22,10 +24,27 @@ export async function cacheDataForOffline(): Promise<void> {
     const member = memberData as { organization_id: string } | null
     if (!member) return
 
+    // Cachear apiarios
+    const { data: apiaries } = await supabase
+      .from('apiaries')
+      .select('id, name')
+      .eq('organization_id', member.organization_id)
+      .order('name')
+
+    if (apiaries) {
+      await setCachedApiaries(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (apiaries as any[]).map((a): CachedApiary => ({
+          id: a.id,
+          name: a.name,
+        }))
+      )
+    }
+
     // Cachear colmenas activas
     const { data: hives } = await supabase
       .from('hives')
-      .select('id, name, code, status, apiaries(name)')
+      .select('id, name, code, status, apiary_id, apiaries(name)')
       .eq('organization_id', member.organization_id)
       .eq('status', 'active')
       .order('name')
@@ -37,6 +56,7 @@ export async function cacheDataForOffline(): Promise<void> {
           id: h.id,
           name: h.name,
           code: h.code ?? null,
+          apiary_id: h.apiary_id ?? null,
           apiary_name: h.apiaries?.name ?? null,
           status: h.status,
         }))

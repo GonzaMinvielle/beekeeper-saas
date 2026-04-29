@@ -28,7 +28,7 @@ async function getData(id: string) {
 
   if (!inspection) notFound()
 
-  const [hivesResult, photosResult] = await Promise.all([
+  const [hivesResult, photosResult, apiaryResult] = await Promise.all([
     supabase
       .from('hives')
       .select('*, apiaries(name)')
@@ -40,6 +40,9 @@ async function getData(id: string) {
       .select('*')
       .eq('inspection_id', id)
       .order('created_at'),
+    inspection.apiary_id
+      ? supabase.from('apiaries').select('name').eq('id', inspection.apiary_id).single()
+      : Promise.resolve({ data: null }),
   ])
 
   const photosWithUrls: PhotoWithUrl[] = await Promise.all(
@@ -55,6 +58,7 @@ async function getData(id: string) {
     inspection,
     hives: (hivesResult.data as HiveWithApiary[]) ?? [],
     photos: photosWithUrls,
+    apiaryName: (apiaryResult.data as { name: string } | null)?.name ?? null,
   }
 }
 
@@ -63,6 +67,6 @@ export default async function InspectionDetailPage({
 }: {
   params: { id: string }
 }) {
-  const { inspection, hives, photos } = await getData(params.id)
-  return <InspectionDetailClient inspection={inspection} hives={hives} photos={photos} />
+  const { inspection, hives, photos, apiaryName } = await getData(params.id)
+  return <InspectionDetailClient inspection={inspection} hives={hives} photos={photos} apiaryName={apiaryName} />
 }

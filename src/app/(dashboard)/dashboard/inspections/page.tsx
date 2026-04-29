@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   getCachedInspections,
   getPendingInspections,
+  getPendingApiaryInspections,
   type CachedInspection,
   type PendingInspection,
 } from '@/lib/offline/db'
@@ -47,7 +48,7 @@ export default function InspectionsPage() {
 
           const { data } = await supabase
             .from('inspections')
-            .select('id, hive_id, inspected_at, overall_health, weather, temperature_c, duration_min, notes, created_at, hives(name)')
+            .select('id, hive_id, apiary_id, inspection_level, inspected_at, overall_health, weather, temperature_c, duration_min, notes, created_at, hives(name), apiaries(name)')
             .eq('organization_id', member.organization_id)
             .order('inspected_at', { ascending: false })
 
@@ -56,7 +57,8 @@ export default function InspectionsPage() {
             ((data ?? []) as any[]).map((i) => ({
               id: i.id,
               hive_id: i.hive_id,
-              hive_name: i.hives?.name ?? null,
+              hive_name: i.hives?.name
+                ?? (i.apiaries?.name ? `Apiario: ${i.apiaries.name}` : null),
               inspected_at: i.inspected_at,
               overall_health: i.overall_health ?? null,
               weather: i.weather ?? null,
@@ -77,12 +79,13 @@ export default function InspectionsPage() {
     }
 
     async function loadFromCache() {
-      const [cached, pending] = await Promise.all([
+      const [cached, pending, pendingApiary] = await Promise.all([
         getCachedInspections().catch(() => [] as CachedInspection[]),
         getPendingInspections().catch(() => [] as PendingInspection[]),
+        getPendingApiaryInspections().catch(() => []),
       ])
 
-      const pendingAsDisplayed: DisplayInspection[] = pending.map((p) => ({
+      const pendingHiveDisplayed: DisplayInspection[] = pending.map((p) => ({
         id: p.id,
         hive_id: p.hive_id,
         hive_name: p.hive_name,
@@ -96,8 +99,22 @@ export default function InspectionsPage() {
         pending: true,
       }))
 
+      const pendingApiaryDisplayed: DisplayInspection[] = pendingApiary.map((p) => ({
+        id: p.id,
+        hive_id: '',
+        hive_name: `Apiario: ${p.apiary_name}`,
+        inspected_at: p.inspected_at,
+        overall_health: null,
+        weather: p.weather_conditions,
+        temperature_c: null,
+        duration_min: null,
+        notes: p.general_notes,
+        created_at: p.created_local,
+        pending: true,
+      }))
+
       // Pendientes primero, luego las cacheadas
-      setInspections([...pendingAsDisplayed, ...cached])
+      setInspections([...pendingHiveDisplayed, ...pendingApiaryDisplayed, ...cached])
     }
 
     load()

@@ -27,23 +27,28 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Refrescar sesión — NO eliminar
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getUser() valida contra Supabase (requiere red). Si falla (offline),
+  // caer a getSession() que valida JWT localmente desde cookies.
+  const { data: { user }, error: getUserError } = await supabase.auth.getUser()
+  let resolvedUser = user
+  if (!user && getUserError) {
+    const { data: { session } } = await supabase.auth.getSession()
+    resolvedUser = session?.user ?? null
+  }
 
   const pathname = request.nextUrl.pathname
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
   const isProtectedRoute = pathname.startsWith('/dashboard')
 
   // Redirigir usuarios no autenticados al login
-  if (!user && isProtectedRoute) {
+  if (!resolvedUser && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
   // Redirigir usuarios autenticados fuera de auth
-  if (user && isAuthRoute) {
+  if (resolvedUser && isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

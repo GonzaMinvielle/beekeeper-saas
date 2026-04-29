@@ -237,7 +237,7 @@ export async function createApiaryInspection(
   revalidatePath('/dashboard/inspections')
   revalidatePath(`/dashboard/apiaries/${apiaryId}`)
   revalidatePath('/dashboard')
-  redirect(`/dashboard/apiaries/${apiaryId}`)
+  redirect('/dashboard/inspections')
 }
 
 export async function deleteInspectionPhoto(

@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createApiaryInspection } from '@/lib/actions/inspections'
+import { savePendingApiaryInspection } from '@/lib/offline/db'
 type PartialHive = { id: string; name: string; code: string | null }
 type ActiveSuper = { id: string; hive_id: string; placed_at: string }
 
@@ -46,6 +48,7 @@ export default function ApiaryInspectionForm({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const today = new Date().toISOString().slice(0, 16)
 
@@ -107,12 +110,44 @@ export default function ApiaryInspectionForm({
     }
     formData.set('supers_changes', JSON.stringify(supersChanges))
 
-    startTransition(async () => {
-      const result = await createApiaryInspection({}, formData)
-      if (result?.error) {
-        setError(result.error)
+    const pendingData = {
+      id: crypto.randomUUID(),
+      apiary_id: apiaryId,
+      apiary_name: apiaryName,
+      inspected_at: (formData.get('inspected_at') as string) || new Date().toISOString(),
+      weather_conditions: (formData.get('weather_conditions') as string) || null,
+      flowering_status: (formData.get('flowering_status') as string) || null,
+      general_notes: (formData.get('general_notes') as string) || null,
+      hives_with_attention: JSON.stringify(hivesWithAttention),
+      supers_changes: JSON.stringify(supersChanges),
+    }
+
+    if (!navigator.onLine) {
+      try {
+        await savePendingApiaryInspection(pendingData)
+        router.push('/dashboard/inspections')
+      } catch {
+        setError('No se pudo guardar localmente.')
       }
-      // On success, action redirects to apiary page
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        const result = await createApiaryInspection({}, formData)
+        if (result?.error) {
+          setError(result.error)
+        }
+        // On success, server action redirects to apiary page
+      } catch {
+        // Network error — save offline
+        try {
+          await savePendingApiaryInspection(pendingData)
+          router.push('/dashboard/inspections')
+        } catch {
+          setError('Sin conexión y no se pudo guardar localmente.')
+        }
+      }
     })
   }
 

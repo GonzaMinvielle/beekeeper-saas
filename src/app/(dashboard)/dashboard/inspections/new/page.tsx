@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { getCachedHives, type CachedHive } from '@/lib/offline/db'
+import { getCachedHives, getCachedApiaries, type CachedHive } from '@/lib/offline/db'
 import InspectionForm from './InspectionForm'
 import InspectionTypeSelector from './InspectionTypeSelector'
 
@@ -43,7 +43,8 @@ function SelectorLoader() {
   useEffect(() => {
     async function load() {
       if (!navigator.onLine) {
-        setApiaries([])
+        const cached = await getCachedApiaries().catch(() => [] as Apiary[])
+        setApiaries(cached)
         setLoading(false)
         return
       }
@@ -117,7 +118,7 @@ function HiveInspectionLoader() {
 
           const { data } = await supabase
             .from('hives')
-            .select('id, name, code, status, apiaries(name)')
+            .select('id, name, code, status, apiary_id, apiaries(name)')
             .eq('organization_id', member.organization_id)
             .eq('status', 'active')
             .order('name')
@@ -129,6 +130,7 @@ function HiveInspectionLoader() {
                 id: h.id,
                 name: h.name,
                 code: h.code ?? null,
+                apiary_id: h.apiary_id ?? null,
                 apiary_name: h.apiaries?.name ?? null,
                 status: h.status,
               }))

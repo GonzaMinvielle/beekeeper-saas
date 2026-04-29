@@ -158,13 +158,17 @@ export default function InspectionDetailClient({
   inspection,
   hives,
   photos,
+  apiaryName,
 }: {
   inspection: Inspection
   hives: HiveWithApiary[]
   photos: PhotoWithUrl[]
+  apiaryName?: string | null
 }) {
   const updateWithId = updateInspection.bind(null, inspection.id)
   const [state, formAction] = useFormState(updateWithId, {})
+
+  const isApiaryInspection = inspection.inspection_level === 'apiary'
 
   const localDatetime = inspection.inspected_at
     ? new Date(inspection.inspected_at).toISOString().slice(0, 16)
@@ -199,7 +203,39 @@ export default function InspectionDetailClient({
         </form>
       </div>
 
-      {/* Edit form */}
+      {/* Apiary inspection — read-only summary */}
+      {isApiaryInspection && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <h2 className="font-semibold text-gray-900">Inspección de apiario</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">Apiario</p>
+              <p className="font-medium text-gray-900">{apiaryName ?? '—'}</p>
+            </div>
+            {inspection.weather_conditions && (
+              <div>
+                <p className="text-gray-500 text-xs mb-0.5">Condiciones</p>
+                <p className="font-medium text-gray-900">{inspection.weather_conditions}</p>
+              </div>
+            )}
+            {inspection.flowering_status && (
+              <div>
+                <p className="text-gray-500 text-xs mb-0.5">Floración</p>
+                <p className="font-medium text-gray-900">{inspection.flowering_status}</p>
+              </div>
+            )}
+          </div>
+          {inspection.general_notes && (
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">Notas generales</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{inspection.general_notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edit form — hive inspections only */}
+      {!isApiaryInspection && (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
         <h2 className="font-semibold text-gray-900 mb-5">Editar inspección</h2>
 
@@ -324,6 +360,7 @@ export default function InspectionDetailClient({
           </div>
         </form>
       </div>
+      )}
 
       {/* Fotos */}
       <PhotosSection inspectionId={inspection.id} photos={photos} />
